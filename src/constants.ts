@@ -71,12 +71,12 @@ export const CONFIG = {
     step: 0.5,
   },
   jumpVelocity: {
-    value: 11.5,
+    value: 18.5,
     type: 'number',
     label: 'Jump Velocity',
     group: 'Physics',
     min: 6,
-    max: 18,
+    max: 22,
     step: 0.5,
   },
 
@@ -237,7 +237,7 @@ export const CONFIG = {
 
   // --- Physics System ---
   gravity: {
-    value: -26,
+    value: -32,
     type: 'number',
     label: 'Gravity',
     group: 'Physics',

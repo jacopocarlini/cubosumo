@@ -13,6 +13,7 @@ interface GameProps {
   exitChat: (payload: Record<string, unknown>) => Promise<void>;
   gameStateRef: React.MutableRefObject<GameState>;
   inputRef: React.MutableRefObject<InputSnapshot>;
+  localMultiplayer: boolean;
   isPaused: boolean;
   playerStamina: number;
   setPlayerStamina: React.Dispatch<React.SetStateAction<number>>;
@@ -205,19 +206,19 @@ function ArenaFloor({
       </mesh>
 
       {/* Floating lanterns */}
-      <mesh position={[-initialWidth / 2 - 2, 4.5, -initialLength / 2 - 2]}>
+      <mesh position={[-initialWidth / 2 - 2, 5.55, -initialLength / 2 - 2]}>
         <boxGeometry args={[0.8, 1, 0.8]} />
         <meshStandardMaterial color="#fef08a" emissive="#f59e0b" emissiveIntensity={1.5} />
       </mesh>
-      <mesh position={[initialWidth / 2 + 2, 4.5, -initialLength / 2 - 2]}>
+      <mesh position={[initialWidth / 2 + 2, 5.55, -initialLength / 2 - 2]}>
         <boxGeometry args={[0.8, 1, 0.8]} />
         <meshStandardMaterial color="#fef08a" emissive="#f59e0b" emissiveIntensity={1.5} />
       </mesh>
-      <mesh position={[-initialWidth / 2 - 2, 4.5, initialLength / 2 + 2]}>
+      <mesh position={[-initialWidth / 2 - 2, 5.55, initialLength / 2 + 2]}>
         <boxGeometry args={[0.8, 1, 0.8]} />
         <meshStandardMaterial color="#fef08a" emissive="#f59e0b" emissiveIntensity={1.5} />
       </mesh>
-      <mesh position={[initialWidth / 2 + 2, 4.5, initialLength / 2 + 2]}>
+      <mesh position={[initialWidth / 2 + 2, 5.55, initialLength / 2 + 2]}>
         <boxGeometry args={[0.8, 1, 0.8]} />
         <meshStandardMaterial color="#fef08a" emissive="#f59e0b" emissiveIntensity={1.5} />
       </mesh>
@@ -277,6 +278,7 @@ function ArenaScene({
   setGameState,
   gameStateRef,
   inputRef,
+  localMultiplayer,
   isPaused,
   playerStamina,
   setPlayerStamina,
@@ -324,6 +326,10 @@ function ArenaScene({
   // Cooldowns & Internal AI logic
   const playerJumpCooldownRef = useRef(0);
   const enemyJumpCooldownRef = useRef(0);
+  const playerOnEnemySupportRef = useRef(false);
+  const enemyOnPlayerSupportRef = useRef(false);
+  const playerEnemySupportTimeRef = useRef(0);
+  const enemyPlayerSupportTimeRef = useRef(0);
   const bumpCooldownRef = useRef(0);
   const sumoPushCooldownRef = useRef(0);
   const enemySumoPushCooldownRef = useRef(0);
@@ -343,6 +349,8 @@ function ArenaScene({
   // Key / Pointer tracking
   const prevJumpPressedRef = useRef(false);
   const prevTapPressedRef = useRef(false);
+  const prevEnemyJumpPressedRef = useRef(false);
+  const prevEnemyTapPressedRef = useRef(false);
 
   // Local stamina refs for smooth 60fps frame loop
   const pStaminaRef = useRef(100);
@@ -365,6 +373,10 @@ function ArenaScene({
     aiTacticalStateRef.current = 'ATTACK';
     playerExhaustionTimerRef.current = 0;
     enemyExhaustionTimerRef.current = 0;
+    playerOnEnemySupportRef.current = false;
+    enemyOnPlayerSupportRef.current = false;
+    playerEnemySupportTimeRef.current = 0;
+    enemyPlayerSupportTimeRef.current = 0;
     enemyBounceTimerRef.current = 0;
     playerBounceTimerRef.current = 0;
     sumoPushCooldownRef.current = 0;
@@ -400,6 +412,7 @@ function ArenaScene({
 
     const dt = Math.min(delta, 0.1);
     const actions = inputRef.current.actions;
+    const enemyActions = inputRef.current.player2Actions;
     const pointer = inputRef.current.pointer;
 
     // 1. Gradually shrink the rectangular Dohyo ring over time until it completely disappears
@@ -432,7 +445,8 @@ function ArenaScene({
       pStaminaRef.current = 0; // Lock to 0
       if (playerExhaustionTimerRef.current <= 0) {
         playerExhaustionTimerRef.current = 0;
-        pStaminaRef.current = 30; // Initial bump after exhaustion ends
+        pStaminaRef.current = getConfig('maxStamina');
+        setPlayerStamina(getConfig('maxStamina'));
         setPlayerExhausted(false);
       }
     }
@@ -441,7 +455,8 @@ function ArenaScene({
       eStaminaRef.current = 0; // Lock to 0
       if (enemyExhaustionTimerRef.current <= 0) {
         enemyExhaustionTimerRef.current = 0;
-        eStaminaRef.current = 30; // Initial bump after exhaustion ends
+        eStaminaRef.current = getConfig('maxStamina');
+        setEnemyStamina(getConfig('maxStamina'));
         setEnemyExhausted(false);
       }
     }
@@ -519,20 +534,52 @@ function ArenaScene({
     const enemyDist = Math.hypot(pPos.x - ePos.x, pPos.z - ePos.z);
     const isTouchingOpponent = enemyDist < 1.85;
 
-    // Ground / Support contact checks (Can jump if touching ground, low height, or in contact with opponent)
-    const isPlayerOnFloor = pPos.y <= 2.0 && Math.abs(pLinvel.y) < 1.5;
-    const isPlayerOnTopEnemy =
-      pPos.y > ePos.y + 0.6 &&
-      Math.abs(pPos.x - ePos.x) < 1.6 &&
-      Math.abs(pPos.z - ePos.z) < 1.6;
-    const canPlayerJump = isPlayerOnFloor || isPlayerOnTopEnemy || isTouchingOpponent;
+    // Only allow a jump from the floor or after actually landing on the other cube.
+    const isPlayerOnFloor = pPos.y <= 1.2 && Math.abs(pLinvel.y) < 1.5;
+    const playerAboveEnemy =
+      pPos.y > ePos.y + 1.25 &&
+      pPos.y < ePos.y + 1.8 &&
+      Math.abs(pPos.x - ePos.x) < 1.5 &&
+      Math.abs(pPos.z - ePos.z) < 1.5;
+    const playerRelativeVerticalSpeed = pLinvel.y - eLinvel.y;
+    if (!playerAboveEnemy || playerRelativeVerticalSpeed > 0.5) {
+      playerOnEnemySupportRef.current = false;
+      playerEnemySupportTimeRef.current = 0;
+    } else if (playerRelativeVerticalSpeed < -0.5) {
+      playerOnEnemySupportRef.current = true;
+    } else if (Math.abs(pLinvel.y) < 1 && Math.abs(eLinvel.y) < 1) {
+      playerEnemySupportTimeRef.current += dt;
+      if (playerEnemySupportTimeRef.current >= 0.12) {
+        playerOnEnemySupportRef.current = true;
+      }
+    } else {
+      playerEnemySupportTimeRef.current = 0;
+    }
+    const isPlayerOnTopEnemy = playerAboveEnemy && playerOnEnemySupportRef.current;
+    const canPlayerJump = isPlayerOnFloor || isPlayerOnTopEnemy;
 
-    const isEnemyOnFloor = ePos.y <= 2.0 && Math.abs(eLinvel.y) < 1.5;
-    const isEnemyOnTopPlayer =
-      ePos.y > pPos.y + 0.6 &&
-      Math.abs(ePos.x - pPos.x) < 1.6 &&
-      Math.abs(ePos.z - pPos.z) < 1.6;
-    const canEnemyJump = isEnemyOnFloor || isEnemyOnTopPlayer || isTouchingOpponent;
+    const isEnemyOnFloor = ePos.y <= 1.2 && Math.abs(eLinvel.y) < 1.5;
+    const enemyAbovePlayer =
+      ePos.y > pPos.y + 1.25 &&
+      ePos.y < pPos.y + 1.8 &&
+      Math.abs(ePos.x - pPos.x) < 1.5 &&
+      Math.abs(ePos.z - pPos.z) < 1.5;
+    const enemyRelativeVerticalSpeed = eLinvel.y - pLinvel.y;
+    if (!enemyAbovePlayer || enemyRelativeVerticalSpeed > 0.5) {
+      enemyOnPlayerSupportRef.current = false;
+      enemyPlayerSupportTimeRef.current = 0;
+    } else if (enemyRelativeVerticalSpeed < -0.5) {
+      enemyOnPlayerSupportRef.current = true;
+    } else if (Math.abs(eLinvel.y) < 1 && Math.abs(pLinvel.y) < 1) {
+      enemyPlayerSupportTimeRef.current += dt;
+      if (enemyPlayerSupportTimeRef.current >= 0.12) {
+        enemyOnPlayerSupportRef.current = true;
+      }
+    } else {
+      enemyPlayerSupportTimeRef.current = 0;
+    }
+    const isEnemyOnTopPlayer = enemyAbovePlayer && enemyOnPlayerSupportRef.current;
+    const canEnemyJump = isEnemyOnFloor || isEnemyOnTopPlayer;
 
     // 2. Player Locomotion (WASD / D-Pad)
     playerMoveDir.set(0, 0, 0);
@@ -621,6 +668,8 @@ function ArenaScene({
       }
       gameAudio.playRetroJump();
 
+      playerOnEnemySupportRef.current = false;
+      playerEnemySupportTimeRef.current = 0;
       const currentPLinvel = playerBody.linvel();
       playerBody.setLinvel(
         {
@@ -655,6 +704,8 @@ function ArenaScene({
           pushDirZ = (ePos.z - pPos.z) / (enemyDist || 1);
         }
 
+        // Measure the stamina advantage before paying the push cost.
+        const staminaDiff = pStaminaRef.current - eStaminaRef.current;
         pStaminaRef.current = Math.max(0, pStaminaRef.current - sumoPushCost);
         if (pStaminaRef.current <= 0) {
           pStaminaRef.current = 0;
@@ -663,11 +714,10 @@ function ArenaScene({
           gameAudio.playErrorBuzz();
         }
 
-        const staminaDiff = pStaminaRef.current - eStaminaRef.current; // [-100, 100]
-        // Higher player stamina = massive blast push, lower = weak shove
-        const pushImpulse = Math.max(5.0, 14.0 + (staminaDiff / 100) * 12.0);
-        
-        const bounceDuration = 0.35;
+        // Always an effective shove; extra stamina only adds a bonus.
+        const pushImpulse = 16 + Math.max(0, staminaDiff / 100) * 10;
+
+        const bounceDuration = 0.5;
         enemyBounceTimerRef.current = bounceDuration;
         setEnemyStunned(true);
 
@@ -692,100 +742,124 @@ function ArenaScene({
     }
     prevTapPressedRef.current = tapPressed;
 
-    // 5. CONTINUOUS CONTACT & STAMINA-BASED PUSHING DYNAMICS
-    // When cubes make physical contact, their pushing power and displacement velocity
-    // are governed directly by stamina difference:
-    // - Player stamina > Enemy stamina => Enemy gets pushed back in the player's direction
-    // - Enemy stamina > Player stamina => Player gets pushed back in the enemy's direction
-    // - The speed of displacement is strictly proportional to the stamina difference.
-    if (isTouchingOpponent && enemyBounceTimerRef.current <= 0 && playerBounceTimerRef.current <= 0) {
-      const dirX = (ePos.x - pPos.x) / (enemyDist || 1);
-      const dirZ = (ePos.z - pPos.z) / (enemyDist || 1);
+    // 6. LOCAL OPPONENT CONTROLS OR ENEMY AI
+    // The AI focuses solely on chasing and shoving the player out of the ring!
+    // When exhausted, it moves slowly and recovers stamina.
+    const aiSpeedRatio = getConfig('aiSpeedRatio');
+    const baseEnemySpeed = localMultiplayer
+      ? baseSpeed
+      : baseSpeed * aiSpeedRatio;
+    const enemySpeed = isEnemyExhausted ? baseEnemySpeed * exhaustionSpeedMult : baseEnemySpeed;
 
-      // Stamina differential: positive means player is stronger, negative means enemy is stronger
-      const staminaDiff = pStaminaRef.current - eStaminaRef.current; // Range approx -100 to +100
-      const absDiff = Math.abs(staminaDiff);
+    enemyMoveDir.set(0, 0, 0);
+    let enemyIsMoving = false;
 
-      // Scaled displacement velocity based on stamina difference and exhaustion
-      // If the defender is exhausted, push speed reaches 26 m/s, otherwise up to 18 m/s
-      const normalMaxPush = getConfig('normalMaxPushSpeed'); // 18
-      const exhaustedPush = getConfig('exhaustedPushSpeed'); // 26
+    if (localMultiplayer) {
+      if (enemyActions.left) enemyMoveDir.x -= 1;
+      if (enemyActions.right) enemyMoveDir.x += 1;
+      if (enemyActions.up) enemyMoveDir.z -= 1;
+      if (enemyActions.down) enemyMoveDir.z += 1;
+      enemyIsMoving = enemyMoveDir.lengthSq() > 0;
 
-      const curEnemyLinvel = enemyBody.linvel();
-      const curPlayerLinvel = playerBody.linvel();
-
-      if (staminaDiff > 3) {
-        // Player overpowers Enemy: forcefully push enemy away in contact vector preserving vertical linvel
-        const pushSpeed = isEnemyExhausted
-          ? exhaustedPush
-          : Math.min(normalMaxPush, 4.0 + (absDiff / 100) * 14.0);
-
-        enemyBody.setLinvel(
-          {
-            x: dirX * pushSpeed,
-            y: curEnemyLinvel.y,
-            z: dirZ * pushSpeed,
-          },
-          true,
-        );
-        // Player maintains forward momentum into enemy preserving vertical linvel (for jumping!)
-        if (isMoving) {
-          playerBody.setLinvel(
+      if (enemyBounceTimerRef.current <= 0) {
+        const curEnemyLinvel = enemyBody.linvel();
+        if (enemyIsMoving) {
+          enemyMoveDir.normalize();
+          enemyHeadingRef.current = Math.atan2(enemyMoveDir.x, enemyMoveDir.z) + Math.PI;
+          enemyBody.setLinvel(
             {
-              x: playerMoveDir.x * (playerSpeed * 0.8),
-              y: curPlayerLinvel.y,
-              z: playerMoveDir.z * (playerSpeed * 0.8),
+              x: enemyMoveDir.x * enemySpeed,
+              y: curEnemyLinvel.y,
+              z: enemyMoveDir.z * enemySpeed,
+            },
+            true,
+          );
+        } else {
+          enemyBody.setLinvel(
+            {
+              x: curEnemyLinvel.x * 0.88,
+              y: curEnemyLinvel.y,
+              z: curEnemyLinvel.z * 0.88,
             },
             true,
           );
         }
-      } else if (staminaDiff < -3) {
-        // Enemy overpowers Player: push player backwards away from enemy preserving vertical linvel
-        const pushSpeed = isPlayerExhausted
-          ? exhaustedPush
-          : Math.min(normalMaxPush, 4.0 + (absDiff / 100) * 14.0);
 
-        playerBody.setLinvel(
-          {
-            x: -dirX * pushSpeed,
-            y: curPlayerLinvel.y,
-            z: -dirZ * pushSpeed,
-          },
-          true,
-        );
+        const enemyJumpPressed = enemyActions.jump;
+        if (
+          enemyJumpPressed &&
+          !prevEnemyJumpPressedRef.current &&
+          enemyJumpCooldownRef.current <= 0 &&
+          canEnemyJump &&
+          !isEnemyExhausted
+        ) {
+          enemyJumpCooldownRef.current = 0.25;
+          eStaminaRef.current = Math.max(0, eStaminaRef.current - jumpCost);
+          if (eStaminaRef.current <= 0) {
+            eStaminaRef.current = 0;
+            enemyExhaustionTimerRef.current = exhaustionDuration;
+            setEnemyExhausted(true);
+          }
+          gameAudio.playRetroJump();
+          enemyOnPlayerSupportRef.current = false;
+          enemyPlayerSupportTimeRef.current = 0;
+          const latestEnemyLinvel = enemyBody.linvel();
+          enemyBody.setLinvel(
+            {x: latestEnemyLinvel.x, y: jumpVelocity, z: latestEnemyLinvel.z},
+            true,
+          );
+        }
+        prevEnemyJumpPressedRef.current = enemyJumpPressed;
+
+        const enemyPushPressed = enemyActions.confirm;
+        if (
+          enemyPushPressed &&
+          !prevEnemyTapPressedRef.current &&
+          enemySumoPushCooldownRef.current <= 0 &&
+          !isEnemyExhausted
+        ) {
+          enemySumoPushCooldownRef.current = 0.5;
+          if (isTouchingOpponent) {
+            let pushDirX = enemyMoveDir.x;
+            let pushDirZ = enemyMoveDir.z;
+            if (pushDirX === 0 && pushDirZ === 0) {
+              pushDirX = (pPos.x - ePos.x) / (enemyDist || 1);
+              pushDirZ = (pPos.z - ePos.z) / (enemyDist || 1);
+            }
+
+            const staminaDiff = eStaminaRef.current - pStaminaRef.current;
+            eStaminaRef.current = Math.max(0, eStaminaRef.current - sumoPushCost);
+            if (eStaminaRef.current <= 0) {
+              eStaminaRef.current = 0;
+              enemyExhaustionTimerRef.current = exhaustionDuration;
+              setEnemyExhausted(true);
+            }
+
+            const pushImpulse = 16 + Math.max(0, staminaDiff / 100) * 10;
+            playerBounceTimerRef.current = 0.5;
+            setPlayerStunned(true);
+            playerBody.setLinvel(
+              {x: pushDirX * pushImpulse, y: 3.2, z: pushDirZ * pushImpulse},
+              true,
+            );
+            gameAudio.playGunshotBlast();
+            setHitSparks([
+              {
+                id: Date.now(),
+                pos: [(pPos.x + ePos.x) / 2, (pPos.y + ePos.y) / 2 + 0.5, (pPos.z + ePos.z) / 2],
+                scale: 1.2,
+              },
+            ]);
+          }
+        }
+        prevEnemyTapPressedRef.current = enemyPushPressed;
       }
-
-      // Intermittent impact sound & sparks when engaged in close wrestling contact
-      if (bumpCooldownRef.current <= 0) {
-        bumpCooldownRef.current = 0.25;
-        gameAudio.playMeleePunch();
-        setHitSparks([
-          {
-            id: Date.now(),
-            pos: [(pPos.x + ePos.x) / 2, (pPos.y + ePos.y) / 2 + 0.5, (pPos.z + ePos.z) / 2],
-            scale: 0.75,
-          },
-        ]);
-      }
-    }
-
-    // 6. ENEMY AI - RELENTLESS OFFENSIVE PURSUIT & STAMINA-DRIVEN PRESSURE
-    // The AI focuses solely on chasing and shoving the player out of the ring!
-    // When exhausted, it moves slowly and recovers stamina.
-    const aiSpeedRatio = getConfig('aiSpeedRatio');
-    const baseEnemySpeed = baseSpeed * aiSpeedRatio;
-    const enemySpeed = isEnemyExhausted ? baseEnemySpeed * exhaustionSpeedMult : baseEnemySpeed;
-
-    // Direct vector towards player
-    enemyMoveDir.set(0, 0, 0);
-    let aiIsMoving = false;
-
-    if (enemyBounceTimerRef.current <= 0) {
+    } else if (enemyBounceTimerRef.current <= 0) {
+      // Direct vector towards player for the single-player AI.
       const curEnemyLinvel = enemyBody.linvel();
       if (isEnemyExhausted) {
-        // When exhausted, AI moves very sluggishly to catch breath
         enemyMoveDir.set(pPos.x - ePos.x, 0, pPos.z - ePos.z).normalize();
-        aiIsMoving = false; // Does not drain stamina while exhausted so it can recharge!
+        enemyIsMoving = false;
         scratchVec.set(pPos.x - ePos.x, 0, pPos.z - ePos.z);
         if (scratchVec.lengthSq() > 0.01) {
           enemyHeadingRef.current = Math.atan2(scratchVec.x, scratchVec.z) + Math.PI;
@@ -799,9 +873,8 @@ function ArenaScene({
           true,
         );
       } else {
-        // Direct, relentless pursuit towards the player everywhere, pushing all the way off the platform!
         enemyMoveDir.set(pPos.x - ePos.x, 0, pPos.z - ePos.z).normalize();
-        aiIsMoving = true;
+        enemyIsMoving = true;
 
         enemyHeadingRef.current = Math.atan2(enemyMoveDir.x, enemyMoveDir.z) + Math.PI;
         enemyBody.setLinvel(
@@ -813,7 +886,6 @@ function ArenaScene({
           true,
         );
 
-        // 7. Enemy AI Jumping (Only when healthy stamina > 40% and cooldown is ready)
         if (
           canEnemyJump &&
           eStaminaRef.current > 40 &&
@@ -828,6 +900,8 @@ function ArenaScene({
               enemyExhaustionTimerRef.current = exhaustionDuration;
               setEnemyExhausted(true);
             }
+            enemyOnPlayerSupportRef.current = false;
+            enemyPlayerSupportTimeRef.current = 0;
             const latestEnemyLinvel = enemyBody.linvel();
             enemyBody.setLinvel(
               {
@@ -840,7 +914,6 @@ function ArenaScene({
           }
         }
 
-        // 8. Enemy AI Sumo Push (Heavy Shove Attack when in physical contact)
         if (
           isTouchingOpponent &&
           !isEnemyExhausted &&
@@ -891,9 +964,73 @@ function ArenaScene({
       }
     }
 
-    // Enemy Stamina handling (Locks to 0 during exhaustion or drains/regenerates when active)
+    // 7. CONTINUOUS CONTACT (side-by-side wrestling)
+    // - Only one cube pushing toward the other: it moves the opponent, regardless of stamina.
+    // - Both pushing head-on: the one with more stamina gains ground slowly.
+    // Skipped when one cube is above the other so jumps can land on top.
+    const isSideContact = isTouchingOpponent && Math.abs(pPos.y - ePos.y) < 0.9;
+    if (isSideContact && enemyBounceTimerRef.current <= 0 && playerBounceTimerRef.current <= 0) {
+      const dirX = (ePos.x - pPos.x) / (enemyDist || 1);
+      const dirZ = (ePos.z - pPos.z) / (enemyDist || 1);
+
+      const playerIntent = isMoving
+        ? Math.max(0, playerMoveDir.x * dirX + playerMoveDir.z * dirZ)
+        : 0;
+      const enemyIntent = enemyIsMoving
+        ? Math.max(0, -(enemyMoveDir.x * dirX + enemyMoveDir.z * dirZ))
+        : 0;
+      const playerPushing = playerIntent > 0.3;
+      const enemyPushing = enemyIntent > 0.3;
+
+      // Positive = pair moves toward the enemy side (player winning).
+      let contactSpeed = 0;
+      if (playerPushing && !enemyPushing) {
+        contactSpeed = playerSpeed * 0.75 * playerIntent;
+      } else if (enemyPushing && !playerPushing) {
+        contactSpeed = -enemySpeed * 0.75 * enemyIntent;
+      } else if (playerPushing && enemyPushing) {
+        if (isEnemyExhausted && !isPlayerExhausted) {
+          contactSpeed = playerSpeed * 0.5;
+        } else if (isPlayerExhausted && !isEnemyExhausted) {
+          contactSpeed = -enemySpeed * 0.5;
+        } else {
+          const staminaDiff = pStaminaRef.current - eStaminaRef.current;
+          contactSpeed =
+            Math.abs(staminaDiff) < 3
+              ? 0
+              : Math.sign(staminaDiff) * Math.min(3, 1 + (Math.abs(staminaDiff) / 100) * 4);
+        }
+      }
+
+      if (playerPushing || enemyPushing) {
+        const curPlayerLinvel = playerBody.linvel();
+        const curEnemyLinvel = enemyBody.linvel();
+        playerBody.setLinvel(
+          {x: dirX * contactSpeed, y: curPlayerLinvel.y, z: dirZ * contactSpeed},
+          true,
+        );
+        enemyBody.setLinvel(
+          {x: dirX * contactSpeed, y: curEnemyLinvel.y, z: dirZ * contactSpeed},
+          true,
+        );
+
+        if (bumpCooldownRef.current <= 0) {
+          bumpCooldownRef.current = 0.25;
+          gameAudio.playMeleePunch();
+          setHitSparks([
+            {
+              id: Date.now(),
+              pos: [(pPos.x + ePos.x) / 2, (pPos.y + ePos.y) / 2 + 0.5, (pPos.z + ePos.z) / 2],
+              scale: 0.75,
+            },
+          ]);
+        }
+      }
+    }
+
+    // Enemy stamina handling (Locks to 0 during exhaustion or drains/regenerates when active)
     if (!isEnemyExhausted) {
-      if (aiIsMoving) {
+      if (enemyIsMoving) {
         eStaminaRef.current = Math.max(0, eStaminaRef.current - moveDrain * dt);
         if (eStaminaRef.current <= 0) {
           eStaminaRef.current = 0;
@@ -996,6 +1133,7 @@ export function Game({
   exitChat,
   gameStateRef,
   inputRef,
+  localMultiplayer,
   isPaused,
   playerStamina,
   setPlayerStamina,
@@ -1067,6 +1205,7 @@ export function Game({
               exitChat={exitChat}
               gameStateRef={gameStateRef}
               inputRef={inputRef}
+              localMultiplayer={localMultiplayer}
               isPaused={isPaused}
               playerStamina={playerStamina}
               setPlayerStamina={setPlayerStamina}

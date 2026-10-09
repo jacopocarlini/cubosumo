@@ -20,10 +20,11 @@ export interface PointerState {
 
 export interface InputSnapshot {
   actions: Record<InputAction, boolean>;
+  player2Actions: Record<InputAction, boolean>;
   pointer: PointerState;
 }
 
-const ACTION_KEYS: Record<string, InputAction> = {
+const PLAYER_ONE_KEYS: Record<string, InputAction> = {
   ArrowLeft: 'left',
   ArrowRight: 'right',
   ArrowUp: 'up',
@@ -36,9 +37,22 @@ const ACTION_KEYS: Record<string, InputAction> = {
   W: 'up',
   s: 'down',
   S: 'down',
+  c: 'jump',
+  C: 'jump',
+  v: 'confirm',
+  V: 'confirm',
   ' ': 'jump', // Spacebar for JUMP
   Enter: 'confirm',
   Escape: 'cancel',
+};
+
+const PLAYER_TWO_KEYS: Record<string, InputAction> = {
+  ArrowLeft: 'left',
+  ArrowRight: 'right',
+  ArrowUp: 'up',
+  ArrowDown: 'down',
+  ',': 'jump',
+  '.': 'confirm',
 };
 
 function createEmptyActions(): Record<InputAction, boolean> {
@@ -68,17 +82,19 @@ function getPointerNDC(
 
 export function useInput(
   containerRef: RefObject<HTMLDivElement>,
-  options: {enabled?: boolean} = {},
+  options: {enabled?: boolean; localMultiplayer?: boolean} = {},
 ): MutableRefObject<InputSnapshot> {
-  const {enabled = true} = options;
+  const {enabled = true, localMultiplayer = false} = options;
   const inputRef = useRef<InputSnapshot>({
     actions: createEmptyActions(),
+    player2Actions: createEmptyActions(),
     pointer: {nx: 0, ny: 0, clientX: 0, clientY: 0, down: false},
   });
 
   useEffect(() => {
     if (!enabled) {
       inputRef.current.actions = createEmptyActions();
+      inputRef.current.player2Actions = createEmptyActions();
       inputRef.current.pointer = {
         nx: 0,
         ny: 0,
@@ -90,7 +106,10 @@ export function useInput(
     }
 
     const handleKeyDown = (event: KeyboardEvent) => {
-      const action = ACTION_KEYS[event.key];
+      const playerOneAction = PLAYER_ONE_KEYS[event.key];
+      const playerTwoAction = PLAYER_TWO_KEYS[event.key];
+      const isPlayerTwoInput = Boolean(playerTwoAction && localMultiplayer);
+      const action = isPlayerTwoInput ? playerTwoAction : playerOneAction;
       if (!action) return;
       if (
         ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' '].includes(
@@ -99,13 +118,21 @@ export function useInput(
       ) {
         event.preventDefault();
       }
-      inputRef.current.actions[action] = true;
+      if (isPlayerTwoInput) {
+        inputRef.current.player2Actions[action] = true;
+      } else {
+        inputRef.current.actions[action] = true;
+      }
     };
 
     const handleKeyUp = (event: KeyboardEvent) => {
-      const action = ACTION_KEYS[event.key];
-      if (!action) return;
-      inputRef.current.actions[action] = false;
+      const playerOneAction = PLAYER_ONE_KEYS[event.key];
+      const playerTwoAction = PLAYER_TWO_KEYS[event.key];
+      if (playerTwoAction && localMultiplayer) {
+        inputRef.current.player2Actions[playerTwoAction] = false;
+      } else if (playerOneAction) {
+        inputRef.current.actions[playerOneAction] = false;
+      }
     };
 
     const container = containerRef.current;
@@ -131,6 +158,7 @@ export function useInput(
 
     const handleBlur = () => {
       inputRef.current.actions = createEmptyActions();
+      inputRef.current.player2Actions = createEmptyActions();
       if (inputRef.current.pointer) {
         inputRef.current.pointer.down = false;
       }
@@ -168,7 +196,7 @@ export function useInput(
         container.removeEventListener('pointercancel', handlePointerUp);
       }
     };
-  }, [containerRef, enabled]);
+  }, [containerRef, enabled, localMultiplayer]);
 
   return inputRef;
 }

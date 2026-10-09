@@ -28,6 +28,9 @@ import {
 
 export default function App() {
   const isMobile = useIsMobile();
+  const isLocalMultiplayer = ['localhost', '127.0.0.1', '::1'].includes(
+    window.location.hostname,
+  );
   const {sdk, isReady} = usePlayground();
   const [exitChat] = useRpc<Record<string, unknown>, void>('ExitChat');
 
@@ -57,6 +60,7 @@ export default function App() {
   const appContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useInput(appContainerRef, {
     enabled: gameState.status === 'PLAYING' && !isGameMenuOpen && !isHowToPlayOpen,
+    localMultiplayer: isLocalMultiplayer,
   });
 
   useEffect(() => {
@@ -244,6 +248,7 @@ export default function App() {
           exitChat={exitChat}
           gameStateRef={gameStateRef}
           inputRef={inputRef}
+          localMultiplayer={isLocalMultiplayer}
           isPaused={isGameMenuOpen || isHowToPlayOpen}
           playerStamina={playerStamina}
           setPlayerStamina={setPlayerStamina}
@@ -259,11 +264,21 @@ export default function App() {
         {gameState.status === 'PLAYING' && !isMobile && (
           <div className="absolute bottom-4 pointer-events-none z-10 flex flex-col items-center gap-1">
             <div className="bg-slate-900/85 border border-slate-700/80 px-4 py-2 rounded-full text-xs font-semibold text-slate-300 backdrop-blur shadow-xl flex items-center gap-3">
-              <span><strong className="text-amber-400">WASD / Frecce</strong> : Muovi</span>
-              <span className="text-slate-600">|</span>
-              <span><strong className="text-sky-400">SPAZIO</strong> : Salta</span>
-              <span className="text-slate-600">|</span>
-              <span><strong className="text-rose-400">CLICK</strong> : Spinta Sumo (a contatto)</span>
+              {isLocalMultiplayer ? (
+                <>
+                  <span><strong className="text-amber-400">P1 WASD</strong> · <strong className="text-sky-400">C</strong> salta · <strong className="text-rose-400">V</strong> spinta</span>
+                  <span className="text-slate-600">|</span>
+                  <span><strong className="text-amber-400">P2 Frecce</strong> · <strong className="text-sky-400">,</strong> salta · <strong className="text-rose-400">.</strong> spinta</span>
+                </>
+              ) : (
+                <>
+                  <span><strong className="text-amber-400">WASD / Frecce</strong> : Muovi</span>
+                  <span className="text-slate-600">|</span>
+                  <span><strong className="text-sky-400">SPAZIO</strong> : Salta</span>
+                  <span className="text-slate-600">|</span>
+                  <span><strong className="text-rose-400">CLICK</strong> : Spinta Sumo</span>
+                </>
+              )}
             </div>
           </div>
         )}
@@ -464,17 +479,35 @@ export default function App() {
             <div className="text-left text-xs md:text-sm text-slate-300 space-y-3 mb-6">
               <div className="bg-slate-800/80 p-3 rounded-xl border border-slate-700">
                 <span className="font-bold text-amber-300">🎮 Movimento:</span>
-                <p className="mt-0.5 text-slate-300">Usa <kbd className="bg-slate-700 px-1.5 py-0.5 rounded text-white font-mono">WASD</kbd> o <kbd className="bg-slate-700 px-1.5 py-0.5 rounded text-white font-mono">Frecce</kbd> per muoverti.</p>
+                <p className="mt-0.5 text-slate-300">
+                  {isLocalMultiplayer ? (
+                    <>Giocatore 1: <kbd className="bg-slate-700 px-1.5 py-0.5 rounded text-white font-mono">WASD</kbd>. Giocatore 2: <kbd className="bg-slate-700 px-1.5 py-0.5 rounded text-white font-mono">Frecce</kbd>.</>
+                  ) : (
+                    <>Usa <kbd className="bg-slate-700 px-1.5 py-0.5 rounded text-white font-mono">WASD</kbd> o <kbd className="bg-slate-700 px-1.5 py-0.5 rounded text-white font-mono">Frecce</kbd> per muoverti.</>
+                  )}
+                </p>
               </div>
 
               <div className="bg-slate-800/80 p-3 rounded-xl border border-slate-700">
-                <span className="font-bold text-rose-400">💥 Spinta Sumo (Click):</span>
-                <p className="mt-0.5 text-slate-300">Fai <strong>Click</strong> mentre tocchi l&apos;avversario nella direzione del tuo movimento. Consuma molta stamina (40%) e fa rimbalzare l&apos;avversario di mezza grandezza bloccando i suoi movimenti durante l&apos;animazione!</p>
+                <span className="font-bold text-rose-400">💥 Spinta Sumo:</span>
+                <p className="mt-0.5 text-slate-300">
+                  {isLocalMultiplayer ? (
+                    <>A contatto, il giocatore 1 preme <kbd className="bg-slate-700 px-1.5 py-0.5 rounded text-white font-mono">V</kbd> e il giocatore 2 preme <kbd className="bg-slate-700 px-1.5 py-0.5 rounded text-white font-mono">.</kbd>. Consuma stamina e fa rimbalzare l&apos;avversario.</>
+                  ) : (
+                    <>Fai click quando tocchi l&apos;avversario nella direzione del movimento. Consuma stamina e lo fa rimbalzare.</>
+                  )}
+                </p>
               </div>
 
               <div className="bg-slate-800/80 p-3 rounded-xl border border-slate-700">
-                <span className="font-bold text-sky-300">🦘 Salto (Spazio):</span>
-                <p className="mt-0.5 text-slate-300">Premi <kbd className="bg-slate-700 px-1.5 py-0.5 rounded text-white font-mono">SPAZIO</kbd> quando tocchi il ring o sei sopra l&apos;avversario (consuma stamina).</p>
+                <span className="font-bold text-sky-300">🦘 Salto:</span>
+                <p className="mt-0.5 text-slate-300">
+                  {isLocalMultiplayer ? (
+                    <>Il giocatore 1 salta con <kbd className="bg-slate-700 px-1.5 py-0.5 rounded text-white font-mono">C</kbd>, il giocatore 2 con <kbd className="bg-slate-700 px-1.5 py-0.5 rounded text-white font-mono">,</kbd>. Consuma stamina.</>
+                  ) : (
+                    <>Premi <kbd className="bg-slate-700 px-1.5 py-0.5 rounded text-white font-mono">SPAZIO</kbd> quando tocchi il ring o sei sopra l&apos;avversario.</>
+                  )}
+                </p>
               </div>
 
               <div className="bg-slate-800/80 p-3 rounded-xl border border-slate-700">
