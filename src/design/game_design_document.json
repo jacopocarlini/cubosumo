@@ -1,0 +1,86 @@
+{
+  "title": "Sumo Cubes 3D",
+  "hook": "Shove rival cubes off arena",
+  "game_overview": "Control a sumo cube in a shrinking arena, charging and pushing the rival off the edge to claim victory across escalating rounds.",
+  "artstyle": "3d-cartoon",
+  "genre": "arcade",
+  "winning_condition": "Push the opponent cube off the shrinking rectangular ring across rounds to win the tournament.",
+  "losing_condition": "Your cube is pushed off the ring and falls into the abyss below.",
+  "player_mode": "single_player",
+  "supported_orientations": [
+    "landscape",
+    "portrait",
+    "any"
+  ],
+  "input_methods": [
+    "touch",
+    "keyboard"
+  ],
+  "score_options": {
+    "score_type": "points",
+    "score_order": "higher_is_better"
+  },
+  "low_end_device_support": false,
+  "mobile_playable": true,
+  "language": [
+    "it",
+    "en"
+  ],
+  "content_descriptors": [],
+  "controls": [
+    {
+      "input": "W / A / S / D (or Arrow Keys)",
+      "action": "Move your sumo cube in 3D space across the ring."
+    },
+    {
+      "input": "Spacebar / Dash Button",
+      "action": "Perform a powerful shove dash in the current movement direction to push the rival."
+    },
+    {
+      "input": "Virtual D-Pad & Push Button (Mobile)",
+      "action": "Touch buttons for directional locomotion and shove attack."
+    }
+  ],
+  "sections": [
+    {
+      "title": "Design Pillars",
+      "content": "1. Physics-Driven Tactile Combat: Punchy Rapier rigid-body impacts and satisfying impulse collisions between the sumo cubes. 2. Escalating Tension: The rectangular arena gradually shrinks over time, forcing decisive engagements. 3. Responsive Arcade Controls: Intuitive directional movement paired with a timed charge shove mechanic.",
+      "summary": "Core arcade sumo experience tenets."
+    },
+    {
+      "title": "Core Loop",
+      "content": "Each round starts in a fresh rectangular dohyo ring. The arena steadily shrinks from its perimeter. The player maneuvers their cube to out-position and ram the AI opponent, unleashing timed Spacebar shoves. Knocking the rival off scores points and advances to next rounds with faster, smarter AI.",
+      "summary": "Match progression and round-based flow."
+    },
+    {
+      "title": "Core Mechanics",
+      "content": "1. Cube Locomotion: Snappy physics velocity with dynamic tilting into movement direction. 2. Shove Dash (Spacebar): A momentary high-impulse surge with a brief cooldown, capable of launching the rival when connected cleanly. 3. Shrinking Ring: The rectangular floor shrinks progressively, with warning edge lines and falling perimeter tiles. 4. AI Behavior: The enemy cube tracks the player, attempts counters, and executes proactive pushes while staying within safe boundaries.",
+      "summary": "Locomotion, shove dash, and shrinking arena dynamics."
+    },
+    {
+      "title": "3D Camera & Movement Alignment",
+      "content": "Camera Perspective: Angled top-down isometric view positioned above and back from the arena center with subtle tracking and impact shake. 3D Coordinate Space: Standard Three.js coordinates (+Y is Up, +X is Right, -Z is Forward). Movement Physics: Rapier 3D dynamic rigid bodies with tuned friction, mass, and impulse responses.",
+      "summary": "Dynamic angled third-person/isometric arena camera."
+    },
+    {
+      "title": "3D Scene & Environment Structure",
+      "content": "The ring is a floating rectangular tatami/wood platform with glowing boundary ribbons. Background features floating lanterns, misty clouds, and subtle cherry blossom particles. High-intensity 3-point lighting highlights the cube faces and visual mawashi belts.",
+      "summary": "Vibrant Japanese sumo dohyo arena suspended in a stylized stylized atmospheric void."
+    },
+    {
+      "title": "Characters & Customization",
+      "content": "Player: Blue/Cyan stylized cube with a sumo topknot (chonmage) and golden mawashi belt. Opponent: Crimson/Orange rival cube with fierce eyes and black mawashi belt. Dynamic visual squash on impact.",
+      "summary": "Charming sumo cubes with expressive stylized designs."
+    },
+    {
+      "title": "Juice & Game Feel",
+      "content": "Dash wind trail particles, shockwave rings upon cube collisions, screen shake on heavy shoves, dramatic slow-motion finish upon ring-out, and confetti celebration on round victories.",
+      "summary": "Anticipation, impact, and victory feedback."
+    },
+    {
+      "title": "Virtual Touch Controls Implementation",
+      "content": "Responsive virtual joystick / 4-way D-Pad on the bottom left and a large, stylized 'SPINTA / SHOVE' button on the bottom right. Wired with onPointerDown, onPointerUp, onPointerLeave, and onPointerCancel with touch-none to prevent browser scroll.",
+      "summary": "Dedicated mobile touch control overlay."
+    }
+  ]
+}

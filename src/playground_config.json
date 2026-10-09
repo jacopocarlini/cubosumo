@@ -1,0 +1,66 @@
+{
+  "schema": [
+    {
+      "name": "playerSpeed",
+      "type": "number",
+      "label": "Player Speed",
+      "default": 9,
+      "min": 5,
+      "max": 15,
+      "step": 0.5
+    },
+    {
+      "name": "pushForce",
+      "type": "number",
+      "label": "Dash Shove Force",
+      "default": 22,
+      "min": 12,
+      "max": 35,
+      "step": 1
+    },
+    {
+      "name": "pushCooldown",
+      "type": "number",
+      "label": "Push Cooldown (s)",
+      "default": 1.1,
+      "min": 0.5,
+      "max": 2.5,
+      "step": 0.1
+    },
+    {
+      "name": "initialRingWidth",
+      "type": "number",
+      "label": "Ring Width",
+      "default": 20,
+      "min": 14,
+      "max": 28,
+      "step": 1
+    },
+    {
+      "name": "initialRingLength",
+      "type": "number",
+      "label": "Ring Length",
+      "default": 26,
+      "min": 18,
+      "max": 36,
+      "step": 1
+    },
+    {
+      "name": "shrinkSpeed",
+      "type": "number",
+      "label": "Ring Shrink Speed",
+      "default": 0.25,
+      "min": 0.1,
+      "max": 0.8,
+      "step": 0.05
+    }
+  ],
+  "values": {
+    "playerSpeed": 9,
+    "pushForce": 22,
+    "pushCooldown": 1.1,
+    "initialRingWidth": 20,
+    "initialRingLength": 26,
+    "shrinkSpeed": 0.25
+  }
+}
