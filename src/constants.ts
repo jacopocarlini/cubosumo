@@ -1,4 +1,4 @@
-import {MusicTrack} from './utils/helper';
+import type {CpuDifficulty, MusicTrack} from './utils/helper';
 
 /** Game configuration schema. */
 export const CONFIG = {
@@ -298,6 +298,12 @@ export function getConfig<K extends ConfigKey>(
 ): (typeof CONFIG)[K]['value'] {
   return CONFIG[key].value;
 }
+
+export const AI_DIFFICULTY_SPEED_RATIOS: Record<CpuDifficulty, number> = {
+  easy: 0.35,
+  normal: getConfig('aiSpeedRatio'),
+  hard: 0.65,
+};
 
 /** Optional presets for the game. */
 export const PRESETS = {};

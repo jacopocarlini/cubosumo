@@ -14,25 +14,36 @@ import {
   Zap,
 } from 'lucide-react';
 import React, {useCallback, useEffect, useRef, useState} from 'react';
-import {getConfig} from './constants';
+import {AI_DIFFICULTY_SPEED_RATIOS, getConfig} from './constants';
 import {Game} from './Game';
 import {useInput} from './input';
 import {useIsMobile} from './utils';
 import BackgroundMusic from './utils/BackgroundMusic';
-import {GameState, MenuOverlay, Overlay, gameAudio} from './utils/helper';
+import {MenuOverlay, Overlay, gameAudio} from './utils/helper';
+import {
+  type CpuDifficulty,
+  type GameMode,
+  type GameState,
+} from './utils/helper';
 import {
   usePlayground,
   usePlaygroundGameLifecycle,
   useRpc,
 } from './utils/usePlayground';
 
+const CPU_DIFFICULTIES: {value: CpuDifficulty; label: string}[] = [
+  {value: 'easy', label: 'EASY'},
+  {value: 'normal', label: 'NORMAL'},
+  {value: 'hard', label: 'HARD'},
+];
+
 export default function App() {
   const isMobile = useIsMobile();
-  const isLocalMultiplayer = ['localhost', '127.0.0.1', '::1'].includes(
-    window.location.hostname,
-  );
   const {sdk, isReady} = usePlayground();
   const [exitChat] = useRpc<Record<string, unknown>, void>('ExitChat');
+  const [gameMode, setGameMode] = useState<GameMode>('single-player');
+  const [cpuDifficulty, setCpuDifficulty] = useState<CpuDifficulty>('normal');
+  const [startMenuStep, setStartMenuStep] = useState<'mode' | 'difficulty'>('mode');
 
   const [gameState, setGameState] = useState<GameState>({
     status: 'START',
@@ -40,6 +51,10 @@ export default function App() {
     level: 1,
     roundWins: 0,
     roundLosses: 0,
+    mode: 'single-player',
+    cpuDifficulty: 'normal',
+    playerLives: 3,
+    opponentLives: 3,
   });
 
   const [playerStamina, setPlayerStamina] = useState(100);
@@ -60,7 +75,7 @@ export default function App() {
   const appContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useInput(appContainerRef, {
     enabled: gameState.status === 'PLAYING' && !isGameMenuOpen && !isHowToPlayOpen,
-    localMultiplayer: isLocalMultiplayer,
+    gameMode,
   });
 
   useEffect(() => {
@@ -85,27 +100,37 @@ export default function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [gameState.status, isHowToPlayOpen]);
 
-  const initGame = useCallback(() => {
-    gameAudio.playConfirmSelect();
-    setPlayerStamina(100);
-    setPlayerExhausted(false);
-    setEnemyStamina(100);
-    setEnemyExhausted(false);
-    setGameState({
-      status: 'PLAYING',
-      score: 0,
-      level: 1,
-      roundWins: 0,
-      roundLosses: 0,
-    });
-    setIsGameMenuOpen(false);
-    setIsHowToPlayOpen(false);
-    setGameKey((prev) => prev + 1);
+  const initGame = useCallback(
+    (mode: GameMode = gameMode, difficulty: CpuDifficulty = cpuDifficulty) => {
+      gameAudio.playConfirmSelect();
+      setGameMode(mode);
+      setCpuDifficulty(difficulty);
+      setPlayerStamina(100);
+      setPlayerExhausted(false);
+      setEnemyStamina(100);
+      setEnemyExhausted(false);
+      setGameState({
+        status: 'PLAYING',
+        score: 0,
+        level: 1,
+        roundWins: 0,
+        roundLosses: 0,
+        mode,
+        cpuDifficulty: difficulty,
+        playerLives: 3,
+        opponentLives: 3,
+      });
+      setStartMenuStep('mode');
+      setIsGameMenuOpen(false);
+      setIsHowToPlayOpen(false);
+      setGameKey((prev) => prev + 1);
 
-    if (sdk) {
-      sdk.startGame();
-    }
-  }, [sdk]);
+      if (sdk) {
+        sdk.startGame();
+      }
+    },
+    [cpuDifficulty, gameMode, sdk],
+  );
 
   // PLAYGROUND SDK Integration
   usePlaygroundGameLifecycle(gameState, sdk);
@@ -143,7 +168,7 @@ export default function App() {
         url={getConfig('backgroundMusicUrl')}
         isPlaying={isMusicPlaying}
         isMuted={musicMuted}
-        volume={0.3}
+        volume={0.12}
       />
 
       {/* Top Header / HUD Bar */}
@@ -167,7 +192,12 @@ export default function App() {
               <div className="flex justify-between items-center text-[10px] md:text-xs font-bold text-sky-400">
                 <span className="flex items-center gap-1">
                   <Zap className="w-3 h-3 fill-sky-400" />
-                  PLAYER
+                  {gameMode === 'local-multiplayer' ? 'PLAYER 1' : 'PLAYER'}
+                  {gameMode === 'local-multiplayer' && (
+                    <span className="ml-1 text-slate-300">
+                      {gameState.playerLives ?? 3} ♥
+                    </span>
+                  )}
                 </span>
                 {playerExhausted ? (
                   <span className="text-rose-400 font-extrabold animate-pulse text-[10px]">EXHAUSTED (-80%)</span>
@@ -197,7 +227,12 @@ export default function App() {
               <div className="flex justify-between items-center text-[10px] md:text-xs font-bold text-rose-400">
                 <span className="flex items-center gap-1">
                   <Zap className="w-3 h-3 fill-rose-400" />
-                  OPPONENT
+                  {gameMode === 'local-multiplayer' ? 'PLAYER 2' : 'CPU'}
+                  {gameMode === 'local-multiplayer' && (
+                    <span className="ml-1 text-slate-300">
+                      {gameState.opponentLives ?? 3} ♥
+                    </span>
+                  )}
                 </span>
                 {enemyExhausted ? (
                   <span className="text-rose-400 font-extrabold animate-pulse text-[10px]">EXHAUSTED (-80%)</span>
@@ -223,8 +258,12 @@ export default function App() {
           {/* Menu Button & Rounds */}
           <div className="flex items-center gap-2">
             <div className="hidden lg:flex items-center gap-1 text-[11px] font-bold text-slate-300 mr-1">
-              <span>W: {gameState.roundWins || 0}</span>
-              <span className="text-rose-400">| L: {gameState.roundLosses || 0}/3</span>
+              {gameMode === 'single-player' && (
+                <>
+                  <span>W: {gameState.roundWins || 0}</span>
+                  <span className="text-rose-400">| L: {gameState.roundLosses || 0}/3</span>
+                </>
+              )}
             </div>
 
             <button
@@ -248,7 +287,8 @@ export default function App() {
           exitChat={exitChat}
           gameStateRef={gameStateRef}
           inputRef={inputRef}
-          localMultiplayer={isLocalMultiplayer}
+          gameMode={gameMode}
+          cpuDifficulty={cpuDifficulty}
           isPaused={isGameMenuOpen || isHowToPlayOpen}
           playerStamina={playerStamina}
           setPlayerStamina={setPlayerStamina}
@@ -264,7 +304,7 @@ export default function App() {
         {gameState.status === 'PLAYING' && !isMobile && (
           <div className="absolute bottom-4 pointer-events-none z-10 flex flex-col items-center gap-1">
             <div className="bg-slate-900/85 border border-slate-700/80 px-4 py-2 rounded-full text-xs font-semibold text-slate-300 backdrop-blur shadow-xl flex items-center gap-3">
-              {isLocalMultiplayer ? (
+              {gameMode === 'local-multiplayer' ? (
                 <>
                   <span><strong className="text-amber-400">P1 WASD</strong> · <strong className="text-sky-400">C</strong> jump · <strong className="text-rose-400">V</strong> push</span>
                   <span className="text-slate-600">|</span>
@@ -272,7 +312,7 @@ export default function App() {
                 </>
               ) : (
                 <>
-                  <span><strong className="text-amber-400">WASD / Arrows</strong> : Move</span>
+                  <span><strong className="text-amber-400">WASD</strong> : Move</span>
                   <span className="text-slate-600">|</span>
                   <span><strong className="text-sky-400">SPACE</strong> : Jump</span>
                   <span className="text-slate-600">|</span>
@@ -375,13 +415,53 @@ export default function App() {
             </p>
 
             <div className="w-full flex flex-col gap-3">
-              <button
-                onClick={initGame}
-                autoFocus
-                className="w-full py-3.5 px-6 rounded-xl font-black text-base md:text-lg bg-amber-400 hover:bg-amber-300 text-slate-950 flex items-center justify-center gap-2 shadow-lg shadow-amber-500/20 cursor-pointer transition transform active:scale-95">
-                <Play className="w-5 h-5 fill-slate-950" />
-                START GAME
-              </button>
+              {startMenuStep === 'mode' ? (
+                <>
+                  <button
+                    onClick={() => {
+                      gameAudio.playCrispClick();
+                      setGameMode('single-player');
+                      setStartMenuStep('difficulty');
+                    }}
+                    autoFocus
+                    className="w-full py-3.5 px-6 rounded-xl font-black text-base md:text-lg bg-amber-400 hover:bg-amber-300 text-slate-950 flex items-center justify-center gap-2 shadow-lg shadow-amber-500/20 cursor-pointer transition transform active:scale-95">
+                    <Play className="w-5 h-5 fill-slate-950" />
+                    SINGLE PLAYER VS CPU
+                  </button>
+                  <button
+                    onClick={() => initGame('local-multiplayer')}
+                    className="w-full py-3 px-6 rounded-xl font-black text-sm md:text-base bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 cursor-pointer transition">
+                    LOCAL MULTIPLAYER
+                  </button>
+                  <button
+                    disabled
+                    className="w-full py-3 px-6 rounded-xl font-black text-sm md:text-base bg-slate-900 text-slate-500 border border-slate-800 cursor-not-allowed">
+                    ONLINE MULTIPLAYER · COMING SOON
+                  </button>
+                </>
+              ) : (
+                <>
+                  <h2 className="text-lg font-black text-slate-100">
+                    CHOOSE CPU DIFFICULTY
+                  </h2>
+                  {CPU_DIFFICULTIES.map(({value, label}) => (
+                    <button
+                      key={value}
+                      onClick={() => initGame('single-player', value)}
+                      className="w-full py-3 px-6 rounded-xl font-black text-sm md:text-base bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 cursor-pointer transition flex items-center justify-between">
+                      <span>{label}</span>
+                      <span className="text-xs text-amber-300">
+                        {Math.round(AI_DIFFICULTY_SPEED_RATIOS[value] * 100)}% SPEED
+                      </span>
+                    </button>
+                  ))}
+                  <button
+                    onClick={() => setStartMenuStep('mode')}
+                    className="w-full py-2.5 px-6 rounded-xl font-bold text-xs md:text-sm text-slate-300 hover:text-white cursor-pointer transition">
+                    BACK TO MODES
+                  </button>
+                </>
+              )}
               <button
                 onClick={() => {
                   gameAudio.playCrispClick();
@@ -460,6 +540,7 @@ export default function App() {
               onClick={() => {
                 gameAudio.playCrispClick();
                 setIsGameMenuOpen(false);
+                setStartMenuStep('mode');
                 setGameState((prev) => ({...prev, status: 'START'}));
               }}
               className="text-xs text-rose-400 hover:text-rose-300 font-semibold cursor-pointer">
@@ -480,10 +561,10 @@ export default function App() {
               <div className="bg-slate-800/80 p-3 rounded-xl border border-slate-700">
                 <span className="font-bold text-amber-300">🎮 Movement:</span>
                 <p className="mt-0.5 text-slate-300">
-                  {isLocalMultiplayer ? (
+                  {gameMode === 'local-multiplayer' ? (
                     <>Player 1: <kbd className="bg-slate-700 px-1.5 py-0.5 rounded text-white font-mono">WASD</kbd>. Player 2: <kbd className="bg-slate-700 px-1.5 py-0.5 rounded text-white font-mono">Arrow keys</kbd>.</>
                   ) : (
-                    <>Use <kbd className="bg-slate-700 px-1.5 py-0.5 rounded text-white font-mono">WASD</kbd> or the <kbd className="bg-slate-700 px-1.5 py-0.5 rounded text-white font-mono">arrow keys</kbd> to move.</>
+                    <>Use <kbd className="bg-slate-700 px-1.5 py-0.5 rounded text-white font-mono">WASD</kbd> to move.</>
                   )}
                 </p>
               </div>
@@ -491,7 +572,7 @@ export default function App() {
               <div className="bg-slate-800/80 p-3 rounded-xl border border-slate-700">
                 <span className="font-bold text-rose-400">💥 Sumo Push:</span>
                 <p className="mt-0.5 text-slate-300">
-                  {isLocalMultiplayer ? (
+                  {gameMode === 'local-multiplayer' ? (
                     <>When in contact, Player 1 presses <kbd className="bg-slate-700 px-1.5 py-0.5 rounded text-white font-mono">V</kbd> and Player 2 presses <kbd className="bg-slate-700 px-1.5 py-0.5 rounded text-white font-mono">.</kbd>. It uses stamina and sends the opponent flying.</>
                   ) : (
                     <>Click while touching your opponent to push them in your current movement direction. It uses stamina and sends them flying.</>
@@ -502,7 +583,7 @@ export default function App() {
               <div className="bg-slate-800/80 p-3 rounded-xl border border-slate-700">
                 <span className="font-bold text-sky-300">🦘 Jump:</span>
                 <p className="mt-0.5 text-slate-300">
-                  {isLocalMultiplayer ? (
+                  {gameMode === 'local-multiplayer' ? (
                     <>Player 1 jumps with <kbd className="bg-slate-700 px-1.5 py-0.5 rounded text-white font-mono">C</kbd>, and Player 2 with <kbd className="bg-slate-700 px-1.5 py-0.5 rounded text-white font-mono">,</kbd>. Press again in midair to double jump. Each jump uses stamina.</>
                   ) : (
                     <>Press <kbd className="bg-slate-700 px-1.5 py-0.5 rounded text-white font-mono">SPACE</kbd> on the ground or on top of your opponent, then press again in midair to double jump. Each jump uses stamina.</>
@@ -533,10 +614,14 @@ export default function App() {
       {/* GAME OVER SCREEN */}
       {gameState.status === 'GAME_OVER' && (
         <Overlay
-          title="DEFEAT"
-          description={`You fell out of the ring 3 times! Final score: ${gameState.score}`}
+          title={gameMode === 'local-multiplayer' ? 'PLAYER 1 DEFEATED' : 'DEFEAT'}
+          description={
+            gameMode === 'local-multiplayer'
+              ? 'Player 1 ran out of lives.'
+              : `You fell out of the ring 3 times! Final score: ${gameState.score}`
+          }
           actionLabel="PLAY AGAIN"
-          onAction={initGame}
+          onAction={() => initGame()}
           icon={<RotateCw size={20} />}
           tone="danger"
         />
@@ -545,10 +630,14 @@ export default function App() {
       {/* VICTORY SCREEN */}
       {gameState.status === 'VICTORY' && (
         <Overlay
-          title="SUMO CHAMPION!"
-          description={`You won the tournament! Final score: ${gameState.score}`}
+          title={gameMode === 'local-multiplayer' ? 'PLAYER 1 WINS!' : 'SUMO CHAMPION!'}
+          description={
+            gameMode === 'local-multiplayer'
+              ? 'Player 2 ran out of lives.'
+              : `You won the tournament! Final score: ${gameState.score}`
+          }
           actionLabel="NEW CHALLENGE"
-          onAction={initGame}
+          onAction={() => initGame()}
           icon={<RotateCw size={20} />}
           tone="victory"
         />

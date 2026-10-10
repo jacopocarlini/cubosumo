@@ -409,6 +409,13 @@ export type GamePhase =
   | 'VICTORY'
   | 'LEVEL_COMPLETE';
 
+export type GameMode =
+  | 'single-player'
+  | 'local-multiplayer'
+  | 'online-multiplayer';
+
+export type CpuDifficulty = 'easy' | 'normal' | 'hard';
+
 export interface GameState {
   status: GamePhase;
   score: number;
@@ -416,6 +423,10 @@ export interface GameState {
   timer?: number;
   roundWins?: number;
   roundLosses?: number;
+  mode?: GameMode;
+  cpuDifficulty?: CpuDifficulty;
+  playerLives?: number;
+  opponentLives?: number;
   [key: string]: any;
 }
 

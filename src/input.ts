@@ -1,4 +1,5 @@
 import {useEffect, useRef, type MutableRefObject, type RefObject} from 'react';
+import type {GameMode} from './utils/helper';
 
 export type InputAction =
   | 'left'
@@ -24,11 +25,19 @@ export interface InputSnapshot {
   pointer: PointerState;
 }
 
-const PLAYER_ONE_KEYS: Record<string, InputAction> = {
-  ArrowLeft: 'left',
-  ArrowRight: 'right',
-  ArrowUp: 'up',
-  ArrowDown: 'down',
+const SINGLE_PLAYER_KEYS: Record<string, InputAction> = {
+  a: 'left',
+  A: 'left',
+  d: 'right',
+  D: 'right',
+  w: 'up',
+  W: 'up',
+  s: 'down',
+  S: 'down',
+  ' ': 'jump',
+};
+
+const LOCAL_PLAYER_ONE_KEYS: Record<string, InputAction> = {
   a: 'left',
   A: 'left',
   d: 'right',
@@ -41,9 +50,6 @@ const PLAYER_ONE_KEYS: Record<string, InputAction> = {
   C: 'jump',
   v: 'confirm',
   V: 'confirm',
-  ' ': 'jump', // Spacebar for JUMP
-  Enter: 'confirm',
-  Escape: 'cancel',
 };
 
 const PLAYER_TWO_KEYS: Record<string, InputAction> = {
@@ -82,9 +88,10 @@ function getPointerNDC(
 
 export function useInput(
   containerRef: RefObject<HTMLDivElement>,
-  options: {enabled?: boolean; localMultiplayer?: boolean} = {},
+  options: {enabled?: boolean; gameMode?: GameMode} = {},
 ): MutableRefObject<InputSnapshot> {
-  const {enabled = true, localMultiplayer = false} = options;
+  const {enabled = true, gameMode = 'single-player'} = options;
+  const localMultiplayer = gameMode === 'local-multiplayer';
   const inputRef = useRef<InputSnapshot>({
     actions: createEmptyActions(),
     player2Actions: createEmptyActions(),
@@ -106,7 +113,10 @@ export function useInput(
     }
 
     const handleKeyDown = (event: KeyboardEvent) => {
-      const playerOneAction = PLAYER_ONE_KEYS[event.key];
+      const playerOneKeys = localMultiplayer
+        ? LOCAL_PLAYER_ONE_KEYS
+        : SINGLE_PLAYER_KEYS;
+      const playerOneAction = playerOneKeys[event.key];
       const playerTwoAction = PLAYER_TWO_KEYS[event.key];
       const isPlayerTwoInput = Boolean(playerTwoAction && localMultiplayer);
       const action = isPlayerTwoInput ? playerTwoAction : playerOneAction;
@@ -126,7 +136,10 @@ export function useInput(
     };
 
     const handleKeyUp = (event: KeyboardEvent) => {
-      const playerOneAction = PLAYER_ONE_KEYS[event.key];
+      const playerOneKeys = localMultiplayer
+        ? LOCAL_PLAYER_ONE_KEYS
+        : SINGLE_PLAYER_KEYS;
+      const playerOneAction = playerOneKeys[event.key];
       const playerTwoAction = PLAYER_TWO_KEYS[event.key];
       if (playerTwoAction && localMultiplayer) {
         inputRef.current.player2Actions[playerTwoAction] = false;
@@ -137,20 +150,20 @@ export function useInput(
 
     const container = containerRef.current;
     const handlePointerDown = (event: PointerEvent) => {
-      if (!container) return;
+      if (!container || localMultiplayer) return;
       const pos = getPointerNDC(event, container);
       inputRef.current.pointer = {...pos, down: true};
       inputRef.current.actions.tap = true;
     };
 
     const handlePointerMove = (event: PointerEvent) => {
-      if (!container) return;
+      if (!container || localMultiplayer) return;
       const pos = getPointerNDC(event, container);
       inputRef.current.pointer = {...pos, down: inputRef.current.pointer.down};
     };
 
     const handlePointerUp = (event: PointerEvent) => {
-      if (!container) return;
+      if (!container || localMultiplayer) return;
       const pos = getPointerNDC(event, container);
       inputRef.current.pointer = {...pos, down: false};
       inputRef.current.actions.tap = false;

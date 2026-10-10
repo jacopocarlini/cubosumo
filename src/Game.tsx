@@ -3,9 +3,10 @@ import {Bloom, EffectComposer} from '@react-three/postprocessing';
 import {CuboidCollider, Physics, RapierRigidBody, RigidBody, useRapier} from '@react-three/rapier';
 import React, {Suspense, useEffect, useMemo, useRef, useState} from 'react';
 import * as THREE from 'three';
-import {getConfig} from './constants';
-import {InputSnapshot} from './input';
-import {GameState, gameAudio} from './utils/helper';
+import {AI_DIFFICULTY_SPEED_RATIOS, getConfig} from './constants';
+import type {InputSnapshot} from './input';
+import {gameAudio} from './utils/helper';
+import type {CpuDifficulty, GameMode, GameState} from './utils/helper';
 
 interface GameProps {
   gameState: GameState;
@@ -13,7 +14,8 @@ interface GameProps {
   exitChat: (payload: Record<string, unknown>) => Promise<void>;
   gameStateRef: React.MutableRefObject<GameState>;
   inputRef: React.MutableRefObject<InputSnapshot>;
-  localMultiplayer: boolean;
+  gameMode: GameMode;
+  cpuDifficulty: CpuDifficulty;
   isPaused: boolean;
   playerStamina: number;
   setPlayerStamina: React.Dispatch<React.SetStateAction<number>>;
@@ -344,7 +346,8 @@ function ArenaScene({
   setGameState,
   gameStateRef,
   inputRef,
-  localMultiplayer,
+  gameMode,
+  cpuDifficulty,
   isPaused,
   playerStamina,
   setPlayerStamina,
@@ -492,6 +495,7 @@ function ArenaScene({
     const actions = inputRef.current.actions;
     const enemyActions = inputRef.current.player2Actions;
     const pointer = inputRef.current.pointer;
+    const localMultiplayer = gameMode === 'local-multiplayer';
 
     const showPlayerSweat = () => {
       playerSweatTimerRef.current = 0.8;
@@ -587,32 +591,66 @@ function ArenaScene({
         // Player fell off
         roundResolvedRef.current = true;
         gameAudio.playDefeatMotif();
-        const currentLosses = (gameState.roundLosses || 0) + 1;
-        setGameState((prev) => ({
-          ...prev,
-          status: currentLosses >= 3 ? 'GAME_OVER' : 'PLAYING',
-          roundLosses: currentLosses,
-        }));
-        if (currentLosses < 3) {
-          setTimeout(() => {
-            if (gameStateRef.current.status === 'PLAYING') {
-              resetArenaAndPositions();
-              roundResolvedRef.current = false;
-            }
-          }, 1200);
+        if (localMultiplayer) {
+          const remainingLives = (gameState.playerLives ?? 3) - 1;
+          setGameState((prev) => ({
+            ...prev,
+            playerLives: remainingLives,
+            status: remainingLives <= 0 ? 'GAME_OVER' : 'PLAYING',
+          }));
+          if (remainingLives > 0) {
+            setTimeout(() => {
+              if (gameStateRef.current.status === 'PLAYING') {
+                resetArenaAndPositions();
+                roundResolvedRef.current = false;
+              }
+            }, 1200);
+          }
+        } else {
+          const currentLosses = (gameState.roundLosses || 0) + 1;
+          setGameState((prev) => ({
+            ...prev,
+            status: currentLosses >= 3 ? 'GAME_OVER' : 'PLAYING',
+            roundLosses: currentLosses,
+          }));
+          if (currentLosses < 3) {
+            setTimeout(() => {
+              if (gameStateRef.current.status === 'PLAYING') {
+                resetArenaAndPositions();
+                roundResolvedRef.current = false;
+              }
+            }, 1200);
+          }
         }
       } else if (ePos.y < -3.5) {
         // Opponent fell off!
         roundResolvedRef.current = true;
         gameAudio.playVictoryFanfare();
-        const newWins = (gameState.roundWins || 0) + 1;
-        const roundScore = 350 + gameState.level * 150;
-        setGameState((prev) => ({
-          ...prev,
-          score: prev.score + roundScore,
-          roundWins: newWins,
-          level: prev.level + 1,
-        }));
+        if (localMultiplayer) {
+          const remainingLives = (gameState.opponentLives ?? 3) - 1;
+          setGameState((prev) => ({
+            ...prev,
+            opponentLives: remainingLives,
+            status: remainingLives <= 0 ? 'VICTORY' : 'PLAYING',
+          }));
+          if (remainingLives > 0) {
+            setTimeout(() => {
+              if (gameStateRef.current.status === 'PLAYING') {
+                resetArenaAndPositions();
+                roundResolvedRef.current = false;
+              }
+            }, 1200);
+          }
+        } else {
+          const newWins = (gameState.roundWins || 0) + 1;
+          const roundScore = 350 + gameState.level * 150;
+          setGameState((prev) => ({
+            ...prev,
+            score: prev.score + roundScore,
+            roundWins: newWins,
+            level: prev.level + 1,
+          }));
+        }
       }
     }
 
@@ -851,7 +889,7 @@ function ArenaScene({
     // 6. LOCAL OPPONENT CONTROLS OR ENEMY AI
     // The AI focuses solely on chasing and shoving the player out of the ring!
     // When exhausted, it moves slowly and recovers stamina.
-    const aiSpeedRatio = getConfig('aiSpeedRatio');
+    const aiSpeedRatio = AI_DIFFICULTY_SPEED_RATIOS[cpuDifficulty];
     const baseEnemySpeed = localMultiplayer
       ? baseSpeed
       : baseSpeed * aiSpeedRatio;
@@ -1236,7 +1274,8 @@ export function Game({
   exitChat,
   gameStateRef,
   inputRef,
-  localMultiplayer,
+  gameMode,
+  cpuDifficulty,
   isPaused,
   playerStamina,
   setPlayerStamina,
@@ -1308,7 +1347,8 @@ export function Game({
               exitChat={exitChat}
               gameStateRef={gameStateRef}
               inputRef={inputRef}
-              localMultiplayer={localMultiplayer}
+              gameMode={gameMode}
+              cpuDifficulty={cpuDifficulty}
               isPaused={isPaused}
               playerStamina={playerStamina}
               setPlayerStamina={setPlayerStamina}
