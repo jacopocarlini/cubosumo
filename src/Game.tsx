@@ -1,6 +1,6 @@
 import {Canvas, useFrame, useThree} from '@react-three/fiber';
 import {Bloom, EffectComposer} from '@react-three/postprocessing';
-import {CuboidCollider, Physics, RapierRigidBody, RigidBody} from '@react-three/rapier';
+import {CuboidCollider, Physics, RapierRigidBody, RigidBody, useRapier} from '@react-three/rapier';
 import React, {Suspense, useEffect, useMemo, useRef, useState} from 'react';
 import * as THREE from 'three';
 import {getConfig} from './constants';
@@ -290,6 +290,7 @@ function ArenaScene({
   setEnemyExhausted,
 }: GameProps) {
   const {camera} = useThree();
+  const {world} = useRapier();
 
   // Arena Dimensions state
   const initialWidth = getConfig('initialRingWidth');
@@ -326,12 +327,13 @@ function ArenaScene({
   // Cooldowns & Internal AI logic
   const playerJumpCooldownRef = useRef(0);
   const enemyJumpCooldownRef = useRef(0);
+  const playerJumpsRemainingRef = useRef(0);
+  const enemyJumpsRemainingRef = useRef(0);
   const playerOnEnemySupportRef = useRef(false);
   const enemyOnPlayerSupportRef = useRef(false);
   const playerEnemySupportTimeRef = useRef(0);
   const enemyPlayerSupportTimeRef = useRef(0);
   const bumpCooldownRef = useRef(0);
-  const sumoPushCooldownRef = useRef(0);
   const enemySumoPushCooldownRef = useRef(0);
 
   // Exhaustion Timers (2 seconds duration when stamina hits 0)
@@ -375,11 +377,12 @@ function ArenaScene({
     enemyExhaustionTimerRef.current = 0;
     playerOnEnemySupportRef.current = false;
     enemyOnPlayerSupportRef.current = false;
+    playerJumpsRemainingRef.current = 0;
+    enemyJumpsRemainingRef.current = 0;
     playerEnemySupportTimeRef.current = 0;
     enemyPlayerSupportTimeRef.current = 0;
     enemyBounceTimerRef.current = 0;
     playerBounceTimerRef.current = 0;
-    sumoPushCooldownRef.current = 0;
     enemySumoPushCooldownRef.current = 0;
 
     setPlayerStamina(100);
@@ -436,7 +439,6 @@ function ArenaScene({
     if (playerJumpCooldownRef.current > 0) playerJumpCooldownRef.current -= dt;
     if (enemyJumpCooldownRef.current > 0) enemyJumpCooldownRef.current -= dt;
     if (bumpCooldownRef.current > 0) bumpCooldownRef.current -= dt;
-    if (sumoPushCooldownRef.current > 0) sumoPushCooldownRef.current -= dt;
     if (enemySumoPushCooldownRef.current > 0) enemySumoPushCooldownRef.current -= dt;
 
     // Handle Exhaustion Timers (2.0s duration penalty: stamina locked to 0, no jumping + 20% speed)
@@ -530,9 +532,23 @@ function ArenaScene({
       }
     }
 
-    // Contact Distance between cubes
+    // Rapier can report nearby pairs without any actual touching contacts.
     const enemyDist = Math.hypot(pPos.x - ePos.x, pPos.z - ePos.z);
-    const isTouchingOpponent = enemyDist < 1.85;
+    let isTouchingOpponent = false;
+    for (let i = 0; i < playerBody.numColliders() && !isTouchingOpponent; i += 1) {
+      const playerCollider = playerBody.collider(i);
+      world.contactPairsWith(playerCollider, (otherCollider) => {
+        if (otherCollider.parent()?.handle !== enemyBody.handle) return;
+        world.contactPair(playerCollider, otherCollider, (manifold) => {
+          for (let j = 0; j < manifold.numContacts(); j += 1) {
+            if (manifold.contactDist(j) <= 0) {
+              isTouchingOpponent = true;
+              break;
+            }
+          }
+        });
+      });
+    }
 
     // Only allow a jump from the floor or after actually landing on the other cube.
     const isPlayerOnFloor = pPos.y <= 1.2 && Math.abs(pLinvel.y) < 1.5;
@@ -556,7 +572,10 @@ function ArenaScene({
       playerEnemySupportTimeRef.current = 0;
     }
     const isPlayerOnTopEnemy = playerAboveEnemy && playerOnEnemySupportRef.current;
-    const canPlayerJump = isPlayerOnFloor || isPlayerOnTopEnemy;
+    const isPlayerSupported = isPlayerOnFloor || isPlayerOnTopEnemy;
+    if (isPlayerSupported) playerJumpsRemainingRef.current = 2;
+    const canPlayerJump =
+      isPlayerSupported || playerJumpsRemainingRef.current > 0;
 
     const isEnemyOnFloor = ePos.y <= 1.2 && Math.abs(eLinvel.y) < 1.5;
     const enemyAbovePlayer =
@@ -579,7 +598,10 @@ function ArenaScene({
       enemyPlayerSupportTimeRef.current = 0;
     }
     const isEnemyOnTopPlayer = enemyAbovePlayer && enemyOnPlayerSupportRef.current;
-    const canEnemyJump = isEnemyOnFloor || isEnemyOnTopPlayer;
+    const isEnemySupported = isEnemyOnFloor || isEnemyOnTopPlayer;
+    if (isEnemySupported) enemyJumpsRemainingRef.current = 2;
+    const canEnemyJump =
+      isEnemySupported || enemyJumpsRemainingRef.current > 0;
 
     // 2. Player Locomotion (WASD / D-Pad)
     playerMoveDir.set(0, 0, 0);
@@ -659,6 +681,7 @@ function ArenaScene({
       !isPlayerExhausted
     ) {
       playerJumpCooldownRef.current = 0.25;
+      playerJumpsRemainingRef.current -= 1;
       pStaminaRef.current = Math.max(0, pStaminaRef.current - jumpCost);
       if (pStaminaRef.current <= 0) {
         pStaminaRef.current = 0;
@@ -688,11 +711,8 @@ function ArenaScene({
     if (
       tapPressed &&
       !prevTapPressedRef.current &&
-      sumoPushCooldownRef.current <= 0 &&
       !isPlayerExhausted
     ) {
-      sumoPushCooldownRef.current = 0.5;
-
       // Only takes effect if touching the opponent
       if (isTouchingOpponent) {
         // Push occurs in the direction player is moving/pushing (WASD), or towards enemy if stationary
@@ -794,6 +814,7 @@ function ArenaScene({
           !isEnemyExhausted
         ) {
           enemyJumpCooldownRef.current = 0.25;
+          enemyJumpsRemainingRef.current -= 1;
           eStaminaRef.current = Math.max(0, eStaminaRef.current - jumpCost);
           if (eStaminaRef.current <= 0) {
             eStaminaRef.current = 0;
@@ -815,10 +836,8 @@ function ArenaScene({
         if (
           enemyPushPressed &&
           !prevEnemyTapPressedRef.current &&
-          enemySumoPushCooldownRef.current <= 0 &&
           !isEnemyExhausted
         ) {
-          enemySumoPushCooldownRef.current = 0.5;
           if (isTouchingOpponent) {
             let pushDirX = enemyMoveDir.x;
             let pushDirZ = enemyMoveDir.z;
@@ -894,6 +913,7 @@ function ArenaScene({
           const shouldJump = (pPos.y > ePos.y + 0.6 && enemyDist < 3.2) || (enemyDist < 2.0 && Math.random() < 0.012);
           if (shouldJump) {
             enemyJumpCooldownRef.current = 2.4;
+            enemyJumpsRemainingRef.current -= 1;
             eStaminaRef.current = Math.max(0, eStaminaRef.current - jumpCost);
             if (eStaminaRef.current <= 0) {
               eStaminaRef.current = 0;

@@ -503,9 +503,9 @@ export default function App() {
                 <span className="font-bold text-sky-300">🦘 Salto:</span>
                 <p className="mt-0.5 text-slate-300">
                   {isLocalMultiplayer ? (
-                    <>Il giocatore 1 salta con <kbd className="bg-slate-700 px-1.5 py-0.5 rounded text-white font-mono">C</kbd>, il giocatore 2 con <kbd className="bg-slate-700 px-1.5 py-0.5 rounded text-white font-mono">,</kbd>. Consuma stamina.</>
+                    <>Il giocatore 1 salta con <kbd className="bg-slate-700 px-1.5 py-0.5 rounded text-white font-mono">C</kbd>, il giocatore 2 con <kbd className="bg-slate-700 px-1.5 py-0.5 rounded text-white font-mono">,</kbd>. Premi di nuovo in aria per fare un doppio salto; ogni salto consuma stamina.</>
                   ) : (
-                    <>Premi <kbd className="bg-slate-700 px-1.5 py-0.5 rounded text-white font-mono">SPAZIO</kbd> quando tocchi il ring o sei sopra l&apos;avversario.</>
+                    <>Premi <kbd className="bg-slate-700 px-1.5 py-0.5 rounded text-white font-mono">SPAZIO</kbd> a terra o sopra l&apos;avversario, poi premilo di nuovo in aria per fare un doppio salto. Ogni salto consuma stamina.</>
                   )}
                 </p>
               </div>
