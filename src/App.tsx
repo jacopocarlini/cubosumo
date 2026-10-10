@@ -17,6 +17,10 @@ import React, {useCallback, useEffect, useRef, useState} from 'react';
 import {AI_DIFFICULTY_SPEED_RATIOS, getConfig} from './constants';
 import {Game} from './Game';
 import {useInput} from './input';
+import {OnlineLobby} from './multiplayer/OnlineLobby';
+import {useOnline} from './multiplayer/useOnline';
+import type {MatchSnapshot} from './multiplayer/protocol';
+import {getViewFighters} from './multiplayer/perspective';
 import {useIsMobile} from './utils';
 import BackgroundMusic from './utils/BackgroundMusic';
 import {MenuOverlay, Overlay, gameAudio} from './utils/helper';
@@ -43,7 +47,7 @@ export default function App() {
   const [exitChat] = useRpc<Record<string, unknown>, void>('ExitChat');
   const [gameMode, setGameMode] = useState<GameMode>('single-player');
   const [cpuDifficulty, setCpuDifficulty] = useState<CpuDifficulty>('normal');
-  const [startMenuStep, setStartMenuStep] = useState<'mode' | 'difficulty'>('mode');
+  const [startMenuStep, setStartMenuStep] = useState<'mode' | 'difficulty' | 'online'>('mode');
 
   const [gameState, setGameState] = useState<GameState>({
     status: 'START',
@@ -77,6 +81,69 @@ export default function App() {
     enabled: gameState.status === 'PLAYING' && !isGameMenuOpen && !isHowToPlayOpen,
     gameMode,
   });
+  const online = useOnline(inputRef, gameState.status === 'PLAYING' && !isGameMenuOpen && !isHowToPlayOpen);
+  const isOnline = gameMode === 'online-multiplayer';
+  const previousOnlineSnapshot = useRef<MatchSnapshot | null>(null);
+
+  useEffect(() => {
+    const previous = previousOnlineSnapshot.current;
+    const snapshot = online.snapshot;
+    previousOnlineSnapshot.current = snapshot;
+    if (!snapshot || !previous || snapshot.roomCode !== previous.roomCode || online.room === null) return;
+    const seat = online.room.seat;
+    if (snapshot.players.some((fighter, index) => fighter.stunned && !previous.players[index].stunned)) {
+      gameAudio.playGunshotBlast();
+    }
+    if (snapshot.players[seat].exhausted && !previous.players[seat].exhausted) {
+      gameAudio.playErrorBuzz();
+    }
+    if (snapshot.players[seat].lives < previous.players[seat].lives) {
+      gameAudio.playDefeatMotif();
+    } else if (snapshot.players[1 - seat].lives < previous.players[1 - seat].lives) {
+      gameAudio.playVictoryFanfare();
+    }
+  }, [online.snapshot, online.room]);
+
+  useEffect(() => {
+    if (!isOnline) return;
+    const snapshot = online.snapshot;
+    if (!snapshot || snapshot.phase === 'waiting') {
+      setGameState((prev) => prev.status === 'START' ? prev : {...prev, status: 'START'});
+      setStartMenuStep('online');
+      setIsGameMenuOpen(false);
+      if (!snapshot) setIsHowToPlayOpen(false);
+      return;
+    }
+    if (snapshot.phase === 'finished') {
+      setIsGameMenuOpen(false);
+      setIsHowToPlayOpen(false);
+    }
+    const [local, opponent] = getViewFighters(snapshot, online.room?.seat ?? 0);
+    setGameState((prev) => ({
+      ...prev,
+      mode: 'online-multiplayer',
+      status: snapshot.phase === 'finished'
+        ? snapshot.winner === online.room?.seat ? 'VICTORY' : 'GAME_OVER'
+        : 'PLAYING',
+      level: snapshot.round,
+      playerLives: local.lives,
+      opponentLives: opponent.lives,
+    }));
+    setPlayerStamina(Math.round(local.stamina));
+    setEnemyStamina(Math.round(opponent.stamina));
+    setPlayerExhausted(local.exhausted);
+    setEnemyExhausted(opponent.exhausted);
+  }, [isOnline, online.snapshot, online.room?.seat]);
+
+  const leaveOnline = () => {
+    online.disconnect();
+    setIsGameMenuOpen(false);
+    setIsHowToPlayOpen(false);
+    setStartMenuStep('mode');
+    setGameMode('single-player');
+    setGameState((prev) => ({...prev, status: 'START', mode: 'single-player'}));
+    setGameKey((prev) => prev + 1);
+  };
 
   useEffect(() => {
     (window as unknown as Record<string, unknown>).canHandleBackKey = [
@@ -102,6 +169,7 @@ export default function App() {
 
   const initGame = useCallback(
     (mode: GameMode = gameMode, difficulty: CpuDifficulty = cpuDifficulty) => {
+      if (mode === 'online-multiplayer') return;
       gameAudio.playConfirmSelect();
       setGameMode(mode);
       setCpuDifficulty(difficulty);
@@ -192,8 +260,8 @@ export default function App() {
               <div className="flex justify-between items-center text-[10px] md:text-xs font-bold text-sky-400">
                 <span className="flex items-center gap-1">
                   <Zap className="w-3 h-3 fill-sky-400" />
-                  {gameMode === 'local-multiplayer' ? 'PLAYER 1' : 'PLAYER'}
-                  {gameMode === 'local-multiplayer' && (
+                  {isOnline ? 'YOU' : gameMode === 'local-multiplayer' ? 'PLAYER 1' : 'PLAYER'}
+                  {gameMode !== 'single-player' && (
                     <span className="ml-1 text-slate-300">
                       {gameState.playerLives ?? 3} ♥
                     </span>
@@ -227,8 +295,8 @@ export default function App() {
               <div className="flex justify-between items-center text-[10px] md:text-xs font-bold text-rose-400">
                 <span className="flex items-center gap-1">
                   <Zap className="w-3 h-3 fill-rose-400" />
-                  {gameMode === 'local-multiplayer' ? 'PLAYER 2' : 'CPU'}
-                  {gameMode === 'local-multiplayer' && (
+                  {isOnline ? 'OPPONENT' : gameMode === 'local-multiplayer' ? 'PLAYER 2' : 'CPU'}
+                  {gameMode !== 'single-player' && (
                     <span className="ml-1 text-slate-300">
                       {gameState.opponentLives ?? 3} ♥
                     </span>
@@ -282,6 +350,8 @@ export default function App() {
       <div className="flex-1 w-full min-h-0 relative flex items-center justify-center">
         <Game
           key={gameKey}
+          onlineSnapshot={online.snapshot}
+          onlineSeat={online.room?.seat ?? 0}
           gameState={gameState}
           setGameState={setGameState}
           exitChat={exitChat}
@@ -299,6 +369,16 @@ export default function App() {
           enemyExhausted={enemyExhausted}
           setEnemyExhausted={setEnemyExhausted}
         />
+
+        {isOnline && gameState.status === 'PLAYING' && online.snapshot?.phase === 'countdown' && (
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-20">
+            <div className="rounded-2xl bg-slate-900/90 px-8 py-6 text-center border border-amber-500/50">
+              <p className="text-2xl font-black text-amber-300">GET READY</p>
+              <p className="text-5xl font-black mt-2">{online.snapshot?.countdown}</p>
+              <p className="mt-2 text-sm">You are BLUE · Opponent is RED</p>
+            </div>
+          </div>
+        )}
 
         {/* Dynamic Desktop Controls Hint */}
         {gameState.status === 'PLAYING' && !isMobile && (
@@ -415,7 +495,9 @@ export default function App() {
             </p>
 
             <div className="w-full flex flex-col gap-3">
-              {startMenuStep === 'mode' ? (
+              {startMenuStep === 'online' ? (
+                <OnlineLobby online={online} onBack={leaveOnline} />
+              ) : startMenuStep === 'mode' ? (
                 <>
                   <button
                     onClick={() => {
@@ -434,9 +516,13 @@ export default function App() {
                     LOCAL MULTIPLAYER
                   </button>
                   <button
-                    disabled
-                    className="w-full py-3 px-6 rounded-xl font-black text-sm md:text-base bg-slate-900 text-slate-500 border border-slate-800 cursor-not-allowed">
-                    ONLINE MULTIPLAYER · COMING SOON
+                    onClick={() => {
+                      setGameMode('online-multiplayer');
+                      setGameState((prev) => ({...prev, score: 0, level: 1, roundWins: 0, roundLosses: 0, playerLives: 3, opponentLives: 3}));
+                      setStartMenuStep('online');
+                    }}
+                    className="w-full py-3 px-6 rounded-xl font-black text-sm md:text-base bg-sky-900 hover:bg-sky-800 text-sky-100 border border-sky-700 cursor-pointer transition">
+                    ONLINE MULTIPLAYER
                   </button>
                 </>
               ) : (
@@ -483,6 +569,7 @@ export default function App() {
             <h2 className="text-2xl md:text-4xl font-black text-amber-400 mb-6 uppercase tracking-wider">
               GAME MENU
             </h2>
+            {isOnline && <p className="text-sm text-amber-300 mb-4">Online matches keep running while this menu is open.</p>}
 
             <div className="w-full flex flex-col gap-3 mb-6">
               <button
@@ -496,7 +583,7 @@ export default function App() {
                 RESUME
               </button>
 
-              <button
+              {!isOnline && <button
                 onClick={() => {
                   gameAudio.playCrispClick();
                   initGame();
@@ -504,7 +591,7 @@ export default function App() {
                 className="w-full py-2.5 rounded-xl font-bold text-sm bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 flex items-center justify-center gap-2 cursor-pointer transition">
                 <RotateCw className="w-4 h-4" />
                 RESTART ROUND
-              </button>
+              </button>}
 
               <button
                 onClick={() => {
@@ -539,6 +626,10 @@ export default function App() {
             <button
               onClick={() => {
                 gameAudio.playCrispClick();
+                if (isOnline) {
+                  leaveOnline();
+                  return;
+                }
                 setIsGameMenuOpen(false);
                 setStartMenuStep('mode');
                 setGameState((prev) => ({...prev, status: 'START'}));
@@ -612,7 +703,28 @@ export default function App() {
       )}
 
       {/* GAME OVER SCREEN */}
-      {gameState.status === 'GAME_OVER' && (
+      {isOnline && online.snapshot?.phase === 'finished' && (
+        <MenuOverlay tone={online.snapshot.winner === online.room?.seat ? 'victory' : 'danger'} zIndex={55}>
+          <div className="w-full bg-slate-900 border border-slate-700 rounded-3xl p-6 text-center flex flex-col gap-4">
+            <h2 className="text-3xl font-black text-amber-300">{online.snapshot.winner === null ? 'DRAW' : online.snapshot.winner === online.room?.seat ? 'YOU WIN!' : 'DEFEAT'}</h2>
+            <p className="text-slate-300">Both players must agree to a rematch.</p>
+            <button
+              disabled={online.snapshot.rematch[online.room?.seat ?? 0]}
+              onClick={() => {
+                setIsGameMenuOpen(false);
+                setIsHowToPlayOpen(false);
+                online.send({type: 'rematch'});
+              }}
+              className="rounded-xl bg-amber-400 text-slate-950 py-3 font-black disabled:opacity-50 cursor-pointer">
+              {online.snapshot.rematch[online.room?.seat ?? 0] ? 'WAITING FOR OPPONENT...' : 'REMATCH'}
+            </button>
+            {online.notice && <p role="alert" className="text-rose-300">{online.notice}</p>}
+            <button onClick={leaveOnline} className="text-slate-300 py-2 font-bold cursor-pointer">MAIN MENU</button>
+          </div>
+        </MenuOverlay>
+      )}
+
+      {!isOnline && gameState.status === 'GAME_OVER' && (
         <Overlay
           title={gameMode === 'local-multiplayer' ? 'PLAYER 1 DEFEATED' : 'DEFEAT'}
           description={
@@ -628,7 +740,7 @@ export default function App() {
       )}
 
       {/* VICTORY SCREEN */}
-      {gameState.status === 'VICTORY' && (
+      {!isOnline && gameState.status === 'VICTORY' && (
         <Overlay
           title={gameMode === 'local-multiplayer' ? 'PLAYER 1 WINS!' : 'SUMO CHAMPION!'}
           description={

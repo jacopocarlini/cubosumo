@@ -151,6 +151,7 @@ export function useInput(
     const container = containerRef.current;
     const handlePointerDown = (event: PointerEvent) => {
       if (!container || localMultiplayer) return;
+      if (event.target instanceof Element && event.target.closest('button, input, a, form')) return;
       const pos = getPointerNDC(event, container);
       inputRef.current.pointer = {...pos, down: true};
       inputRef.current.actions.tap = true;
@@ -192,8 +193,8 @@ export function useInput(
     if (container) {
       container.addEventListener('pointerdown', handlePointerDown);
       container.addEventListener('pointermove', handlePointerMove);
-      container.addEventListener('pointerup', handlePointerUp);
-      container.addEventListener('pointercancel', handlePointerUp);
+      window.addEventListener('pointerup', handlePointerUp);
+      window.addEventListener('pointercancel', handlePointerUp);
     }
 
     return () => {
@@ -205,8 +206,8 @@ export function useInput(
       if (container) {
         container.removeEventListener('pointerdown', handlePointerDown);
         container.removeEventListener('pointermove', handlePointerMove);
-        container.removeEventListener('pointerup', handlePointerUp);
-        container.removeEventListener('pointercancel', handlePointerUp);
+        window.removeEventListener('pointerup', handlePointerUp);
+        window.removeEventListener('pointercancel', handlePointerUp);
       }
     };
   }, [containerRef, enabled, localMultiplayer]);

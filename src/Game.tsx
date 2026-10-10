@@ -5,10 +5,14 @@ import React, {Suspense, useEffect, useMemo, useRef, useState} from 'react';
 import * as THREE from 'three';
 import {AI_DIFFICULTY_SPEED_RATIOS, getConfig} from './constants';
 import type {InputSnapshot} from './input';
+import type {MatchSnapshot} from './multiplayer/protocol';
+import {getViewFighters} from './multiplayer/perspective';
 import {gameAudio} from './utils/helper';
 import type {CpuDifficulty, GameMode, GameState} from './utils/helper';
 
 interface GameProps {
+  onlineSnapshot?: MatchSnapshot | null;
+  onlineSeat?: 0 | 1;
   gameState: GameState;
   setGameState: React.Dispatch<React.SetStateAction<GameState>>;
   exitChat: (payload: Record<string, unknown>) => Promise<void>;
@@ -1268,7 +1272,61 @@ function ArenaScene({
   );
 }
 
+function OnlineArenaScene({snapshot, seat}: {snapshot: MatchSnapshot | null; seat: 0 | 1}) {
+  const {camera} = useThree();
+  const blueRef = useRef<THREE.Group>(null);
+  const redRef = useRef<THREE.Group>(null);
+  const lastRoundRef = useRef('');
+  const targetPosition = useMemo(() => new THREE.Vector3(), []);
+  const targetRotation = useMemo(() => new THREE.Quaternion(), []);
+  const fighters = useMemo(() => snapshot ? getViewFighters(snapshot, seat) : null, [snapshot, seat]);
+  useFrame((_, delta) => {
+    if (!snapshot || !fighters) return;
+    const roundKey = `${snapshot.roomCode}:${seat}:${snapshot.round}:${snapshot.phase === 'countdown'}`;
+    const teleport = roundKey !== lastRoundRef.current;
+    lastRoundRef.current = roundKey;
+    const blend = 1 - Math.exp(-delta * 25);
+    [blueRef, redRef].forEach((ref, index) => {
+      if (!ref.current) return;
+      const fighter = fighters[index];
+      targetPosition.set(fighter.position.x, fighter.position.y, fighter.position.z);
+      targetRotation.set(fighter.rotation.x, fighter.rotation.y, fighter.rotation.z, fighter.rotation.w);
+      ref.current.position.lerp(targetPosition, teleport ? 1 : blend);
+      ref.current.quaternion.slerp(targetRotation, teleport ? 1 : blend);
+    });
+    const midX = (fighters[0].position.x + fighters[1].position.x) * 0.35;
+    const midZ = (fighters[0].position.z + fighters[1].position.z) * 0.35;
+    camera.position.lerp(targetPosition.set(midX + getConfig('cameraX'), getConfig('cameraY'), midZ + getConfig('cameraZ')), 1 - Math.exp(-delta * 3));
+    camera.lookAt(midX, 0.5, midZ);
+  });
+  return (
+    <group>
+      <ArenaFloor
+        currentWidth={snapshot?.width ?? getConfig('initialRingWidth')}
+        currentLength={snapshot?.length ?? getConfig('initialRingLength')}
+        initialWidth={getConfig('initialRingWidth')}
+        initialLength={getConfig('initialRingLength')}
+      />
+      <FloatingParticles />
+      {[blueRef, redRef].map((ref, index) => (
+        <group key={index} ref={ref} position={[0, 1.5, index === 0 ? 6 : -6]}>
+          <SumoCubeVisual
+            color={index === 0 ? '#0284c7' : '#e11d48'}
+            beltColor={index === 0 ? '#eab308' : '#1e293b'}
+            isPlayer={index === 0}
+            isExhausted={fighters?.[index].exhausted}
+            isStunned={fighters?.[index].stunned}
+            isSweating={fighters?.[index].sweating}
+          />
+        </group>
+      ))}
+    </group>
+  );
+}
+
 export function Game({
+  onlineSnapshot,
+  onlineSeat = 0,
   gameState,
   setGameState,
   exitChat,
@@ -1340,25 +1398,29 @@ export function Game({
           <Physics
             gravity={[0, getConfig('gravity'), 0]}
             timeStep="vary"
-            paused={isPaused}>
-            <ArenaScene
-              gameState={gameState}
-              setGameState={setGameState}
-              exitChat={exitChat}
-              gameStateRef={gameStateRef}
-              inputRef={inputRef}
-              gameMode={gameMode}
-              cpuDifficulty={cpuDifficulty}
-              isPaused={isPaused}
-              playerStamina={playerStamina}
-              setPlayerStamina={setPlayerStamina}
-              playerExhausted={playerExhausted}
-              setPlayerExhausted={setPlayerExhausted}
-              enemyStamina={enemyStamina}
-              setEnemyStamina={setEnemyStamina}
-              enemyExhausted={enemyExhausted}
-              setEnemyExhausted={setEnemyExhausted}
-            />
+            paused={isPaused || gameMode === 'online-multiplayer'}>
+            {gameMode === 'online-multiplayer' ? (
+              <OnlineArenaScene snapshot={onlineSnapshot ?? null} seat={onlineSeat} />
+            ) : (
+              <ArenaScene
+                gameState={gameState}
+                setGameState={setGameState}
+                exitChat={exitChat}
+                gameStateRef={gameStateRef}
+                inputRef={inputRef}
+                gameMode={gameMode}
+                cpuDifficulty={cpuDifficulty}
+                isPaused={isPaused}
+                playerStamina={playerStamina}
+                setPlayerStamina={setPlayerStamina}
+                playerExhausted={playerExhausted}
+                setPlayerExhausted={setPlayerExhausted}
+                enemyStamina={enemyStamina}
+                setEnemyStamina={setEnemyStamina}
+                enemyExhausted={enemyExhausted}
+                setEnemyExhausted={setEnemyExhausted}
+              />
+            )}
           </Physics>
 
           <EffectComposer>
