@@ -37,6 +37,7 @@ interface SumoCubeMeshProps {
   isPlayer?: boolean;
   isExhausted?: boolean;
   isStunned?: boolean;
+  isSweating?: boolean;
 }
 
 function SumoCubeVisual({
@@ -45,6 +46,7 @@ function SumoCubeVisual({
   isPlayer = false,
   isExhausted = false,
   isStunned = false,
+  isSweating = false,
 }: SumoCubeMeshProps) {
   return (
     <group>
@@ -82,60 +84,124 @@ function SumoCubeVisual({
         </mesh>
       </group>
 
+      <SweatDrops visible={isExhausted || isSweating} />
+
       {/* Expressive Sumo Eyes on Front (-Z Face) */}
       <group position={[0, 0.95, -0.76]}>
-        {/* Left Eye */}
-        <mesh position={[-0.35, 0, 0]}>
-          <planeGeometry args={[0.22, 0.22]} />
-          <meshBasicMaterial color="#ffffff" side={THREE.DoubleSide} />
-        </mesh>
-        <mesh position={[-0.35, 0, -0.01]}>
-          <planeGeometry args={[0.1, 0.1]} />
-          <meshBasicMaterial color={isExhausted ? '#94a3b8' : '#0f172a'} side={THREE.DoubleSide} />
-        </mesh>
+          {/* Left Eye */}
+          <mesh position={[-0.35, 0, 0]}>
+            <planeGeometry args={[0.22, 0.22]} />
+            <meshBasicMaterial color="#ffffff" side={THREE.DoubleSide} />
+          </mesh>
+          <mesh position={[-0.35, 0, -0.01]}>
+            <planeGeometry args={[0.1, 0.1]} />
+            <meshBasicMaterial
+              color={isExhausted ? '#94a3b8' : '#0f172a'}
+              side={THREE.DoubleSide}
+            />
+          </mesh>
 
-        {/* Right Eye */}
-        <mesh position={[0.35, 0, 0]}>
-          <planeGeometry args={[0.22, 0.22]} />
-          <meshBasicMaterial color="#ffffff" side={THREE.DoubleSide} />
-        </mesh>
-        <mesh position={[0.35, 0, -0.01]}>
-          <planeGeometry args={[0.1, 0.1]} />
-          <meshBasicMaterial color={isExhausted ? '#94a3b8' : '#0f172a'} side={THREE.DoubleSide} />
-        </mesh>
+          {/* Right Eye */}
+          <mesh position={[0.35, 0, 0]}>
+            <planeGeometry args={[0.22, 0.22]} />
+            <meshBasicMaterial color="#ffffff" side={THREE.DoubleSide} />
+          </mesh>
+          <mesh position={[0.35, 0, -0.01]}>
+            <planeGeometry args={[0.1, 0.1]} />
+            <meshBasicMaterial
+              color={isExhausted ? '#94a3b8' : '#0f172a'}
+              side={THREE.DoubleSide}
+            />
+          </mesh>
 
-        {/* Eyebrows */}
-        <mesh
-          position={[-0.35, 0.16, -0.01]}
-          rotation={[0, 0, isExhausted ? -0.2 : isPlayer ? 0.2 : -0.25]}>
-          <planeGeometry args={[0.26, 0.06]} />
-          <meshBasicMaterial color="#0f172a" side={THREE.DoubleSide} />
-        </mesh>
-        <mesh
-          position={[0.35, 0.16, -0.01]}
-          rotation={[0, 0, isExhausted ? 0.2 : isPlayer ? -0.2 : 0.25]}>
-          <planeGeometry args={[0.26, 0.06]} />
-          <meshBasicMaterial color="#0f172a" side={THREE.DoubleSide} />
-        </mesh>
+          {/* Eyebrows */}
+          <mesh
+            position={[-0.35, 0.16, -0.01]}
+            rotation={[0, 0, isExhausted ? -0.2 : isPlayer ? 0.2 : -0.25]}>
+            <planeGeometry args={[0.26, 0.06]} />
+            <meshBasicMaterial color="#0f172a" side={THREE.DoubleSide} />
+          </mesh>
+          <mesh
+            position={[0.35, 0.16, -0.01]}
+            rotation={[0, 0, isExhausted ? 0.2 : isPlayer ? -0.2 : 0.25]}>
+            <planeGeometry args={[0.26, 0.06]} />
+            <meshBasicMaterial color="#0f172a" side={THREE.DoubleSide} />
+          </mesh>
 
-        {/* Rosy Sumo Cheeks */}
-        <mesh position={[-0.45, -0.2, -0.01]}>
-          <planeGeometry args={[0.18, 0.1]} />
-          <meshBasicMaterial
-            color={isExhausted ? '#38bdf8' : '#f43f5e'}
-            transparent
-            opacity={0.65}
-            side={THREE.DoubleSide}
-          />
+          {/* Rosy Sumo Cheeks */}
+          <mesh position={[-0.45, -0.2, -0.01]}>
+            <planeGeometry args={[0.18, 0.1]} />
+            <meshBasicMaterial
+              color={isExhausted ? '#38bdf8' : '#f43f5e'}
+              transparent
+              opacity={0.65}
+              side={THREE.DoubleSide}
+            />
+          </mesh>
+          <mesh position={[0.45, -0.2, -0.01]}>
+            <planeGeometry args={[0.18, 0.1]} />
+            <meshBasicMaterial
+              color={isExhausted ? '#38bdf8' : '#f43f5e'}
+              transparent
+              opacity={0.65}
+              side={THREE.DoubleSide}
+            />
+          </mesh>
+      </group>
+    </group>
+  );
+}
+
+function SweatDrops({visible}: {visible: boolean}) {
+  const frontDropsRef = useRef<THREE.Group>(null);
+  const backDropsRef = useRef<THREE.Group>(null);
+
+  useFrame(({clock}) => {
+    const phase = clock.elapsedTime * 7;
+    if (frontDropsRef.current) {
+      frontDropsRef.current.position.y = 1.45 + Math.sin(phase) * 0.08;
+      frontDropsRef.current.children.forEach((drop, index) => {
+        drop.rotation.z = Math.sin(phase * 0.7 + index * 2.1) * 0.25;
+      });
+    }
+    if (backDropsRef.current) {
+      backDropsRef.current.position.y = 1.8 + Math.sin(phase + 1.2) * 0.08;
+      backDropsRef.current.children.forEach((drop, index) => {
+        drop.rotation.z = Math.sin(phase * 0.7 + index * 2.1 + 1.2) * 0.25;
+      });
+    }
+  });
+
+  return (
+    <group visible={visible}>
+      <group ref={frontDropsRef} position={[0, 1.45, 0]}>
+        {[-1, 1].map((side) => (
+          <mesh
+            key={side}
+            position={[side * 0.7, 0, -0.82]}
+            scale={[0.09, 0.15, 0.055]}>
+            <sphereGeometry args={[1, 12, 12]} />
+            <meshBasicMaterial color="#38bdf8" />
+          </mesh>
+        ))}
+        <mesh position={[0.82, -0.23, -0.82]} scale={[0.07, 0.12, 0.05]}>
+          <sphereGeometry args={[1, 12, 12]} />
+          <meshBasicMaterial color="#7dd3fc" />
         </mesh>
-        <mesh position={[0.45, -0.2, -0.01]}>
-          <planeGeometry args={[0.18, 0.1]} />
-          <meshBasicMaterial
-            color={isExhausted ? '#38bdf8' : '#f43f5e'}
-            transparent
-            opacity={0.65}
-            side={THREE.DoubleSide}
-          />
+      </group>
+      <group ref={backDropsRef} position={[0, 1.8, 0]}>
+        {[-1, 1].map((side) => (
+          <mesh
+            key={side}
+            position={[side * 0.55, 0, 0.82]}
+            scale={[0.09, 0.15, 0.055]}>
+            <sphereGeometry args={[1, 12, 12]} />
+            <meshBasicMaterial color="#38bdf8" />
+          </mesh>
+        ))}
+        <mesh position={[0.75, -0.22, 0.82]} scale={[0.07, 0.12, 0.05]}>
+          <sphereGeometry args={[1, 12, 12]} />
+          <meshBasicMaterial color="#7dd3fc" />
         </mesh>
       </group>
     </group>
@@ -313,12 +379,11 @@ function ArenaScene({
   const enemyBodyRef = useRef<RapierRigidBody>(null);
 
   // Visual Groups
-  const playerVisualRef = useRef<THREE.Group>(null);
-  const enemyVisualRef = useRef<THREE.Group>(null);
-
   // States
   const [playerStunned, setPlayerStunned] = useState(false);
   const [enemyStunned, setEnemyStunned] = useState(false);
+  const [playerSweating, setPlayerSweating] = useState(false);
+  const [enemySweating, setEnemySweating] = useState(false);
   const [hitSparks, setHitSparks] = useState<HitSpark[]>([]);
 
   // AI Tactical State Ref ('ATTACK' or 'REST')
@@ -343,6 +408,8 @@ function ArenaScene({
   // Bounce animation / stun states (during bounce, opponent is locked in animation)
   const enemyBounceTimerRef = useRef(0);
   const playerBounceTimerRef = useRef(0);
+  const playerSweatTimerRef = useRef(0);
+  const enemySweatTimerRef = useRef(0);
 
   const playerHeadingRef = useRef(0);
   const enemyHeadingRef = useRef(0);
@@ -384,6 +451,10 @@ function ArenaScene({
     enemyBounceTimerRef.current = 0;
     playerBounceTimerRef.current = 0;
     enemySumoPushCooldownRef.current = 0;
+    playerSweatTimerRef.current = 0;
+    enemySweatTimerRef.current = 0;
+    playerHeadingRef.current = 0;
+    enemyHeadingRef.current = Math.PI;
 
     setPlayerStamina(100);
     setEnemyStamina(100);
@@ -391,14 +462,18 @@ function ArenaScene({
     setEnemyExhausted(false);
     setPlayerStunned(false);
     setEnemyStunned(false);
+    setPlayerSweating(false);
+    setEnemySweating(false);
 
     if (playerBodyRef.current) {
       playerBodyRef.current.setTranslation({x: 0, y: 1.5, z: 6}, true);
+      playerBodyRef.current.setRotation({x: 0, y: 0, z: 0, w: 1}, true);
       playerBodyRef.current.setLinvel({x: 0, y: 0, z: 0}, true);
       playerBodyRef.current.setAngvel({x: 0, y: 0, z: 0}, true);
     }
     if (enemyBodyRef.current) {
       enemyBodyRef.current.setTranslation({x: 0, y: 1.5, z: -6}, true);
+      enemyBodyRef.current.setRotation({x: 0, y: 1, z: 0, w: 0}, true);
       enemyBodyRef.current.setLinvel({x: 0, y: 0, z: 0}, true);
       enemyBodyRef.current.setAngvel({x: 0, y: 0, z: 0}, true);
     }
@@ -417,6 +492,15 @@ function ArenaScene({
     const actions = inputRef.current.actions;
     const enemyActions = inputRef.current.player2Actions;
     const pointer = inputRef.current.pointer;
+
+    const showPlayerSweat = () => {
+      playerSweatTimerRef.current = 0.8;
+      setPlayerSweating(true);
+    };
+    const showEnemySweat = () => {
+      enemySweatTimerRef.current = 0.8;
+      setEnemySweating(true);
+    };
 
     // 1. Gradually shrink the rectangular Dohyo ring over time until it completely disappears
     if (ringDimRef.current.width > 0 || ringDimRef.current.length > 0) {
@@ -671,15 +755,17 @@ function ArenaScene({
     // 3. JUMP MECHANIC: PLAYER
     // Can jump if touching ground, on top of enemy, or engaged in contact AND not exhausted
     const jumpPressed = actions.jump;
-    const jumpVelocity = getConfig('jumpVelocity');
-
-    if (
+    const jumpAttempted =
       jumpPressed &&
       !prevJumpPressedRef.current &&
       playerJumpCooldownRef.current <= 0 &&
       canPlayerJump &&
-      !isPlayerExhausted
-    ) {
+      !isPlayerExhausted;
+    const jumpVelocity = getConfig('jumpVelocity');
+
+    if (jumpAttempted && pStaminaRef.current < jumpCost) {
+      showPlayerSweat();
+    } else if (jumpAttempted) {
       playerJumpCooldownRef.current = 0.25;
       playerJumpsRemainingRef.current -= 1;
       pStaminaRef.current = Math.max(0, pStaminaRef.current - jumpCost);
@@ -715,49 +801,49 @@ function ArenaScene({
     ) {
       // Only takes effect if touching the opponent
       if (isTouchingOpponent) {
-        // Push occurs in the direction player is moving/pushing (WASD), or towards enemy if stationary
-        let pushDirX = playerMoveDir.x;
-        let pushDirZ = playerMoveDir.z;
+        if (pStaminaRef.current < sumoPushCost) {
+          showPlayerSweat();
+        } else {
+          // Push in the movement direction, or toward the enemy if stationary.
+          let pushDirX = playerMoveDir.x;
+          let pushDirZ = playerMoveDir.z;
 
-        if (pushDirX === 0 && pushDirZ === 0) {
-          pushDirX = (ePos.x - pPos.x) / (enemyDist || 1);
-          pushDirZ = (ePos.z - pPos.z) / (enemyDist || 1);
+          if (pushDirX === 0 && pushDirZ === 0) {
+            pushDirX = (ePos.x - pPos.x) / (enemyDist || 1);
+            pushDirZ = (ePos.z - pPos.z) / (enemyDist || 1);
+          }
+
+          const staminaDiff = pStaminaRef.current - eStaminaRef.current;
+          pStaminaRef.current = Math.max(0, pStaminaRef.current - sumoPushCost);
+          if (pStaminaRef.current <= 0) {
+            pStaminaRef.current = 0;
+            playerExhaustionTimerRef.current = exhaustionDuration;
+            setPlayerExhausted(true);
+            gameAudio.playErrorBuzz();
+          }
+
+          const pushImpulse = 16 + Math.max(0, staminaDiff / 100) * 10;
+
+          enemyBounceTimerRef.current = 0.5;
+          setEnemyStunned(true);
+          enemyBody.setLinvel(
+            {
+              x: pushDirX * pushImpulse,
+              y: 3.2,
+              z: pushDirZ * pushImpulse,
+            },
+            true,
+          );
+
+          gameAudio.playGunshotBlast();
+          setHitSparks([
+            {
+              id: Date.now(),
+              pos: [(pPos.x + ePos.x) / 2, (pPos.y + ePos.y) / 2 + 0.5, (pPos.z + ePos.z) / 2],
+              scale: 1.2,
+            },
+          ]);
         }
-
-        // Measure the stamina advantage before paying the push cost.
-        const staminaDiff = pStaminaRef.current - eStaminaRef.current;
-        pStaminaRef.current = Math.max(0, pStaminaRef.current - sumoPushCost);
-        if (pStaminaRef.current <= 0) {
-          pStaminaRef.current = 0;
-          playerExhaustionTimerRef.current = exhaustionDuration;
-          setPlayerExhausted(true);
-          gameAudio.playErrorBuzz();
-        }
-
-        // Always an effective shove; extra stamina only adds a bonus.
-        const pushImpulse = 16 + Math.max(0, staminaDiff / 100) * 10;
-
-        const bounceDuration = 0.5;
-        enemyBounceTimerRef.current = bounceDuration;
-        setEnemyStunned(true);
-
-        enemyBody.setLinvel(
-          {
-            x: pushDirX * pushImpulse,
-            y: 3.2,
-            z: pushDirZ * pushImpulse,
-          },
-          true,
-        );
-
-        gameAudio.playGunshotBlast();
-        setHitSparks([
-          {
-            id: Date.now(),
-            pos: [(pPos.x + ePos.x) / 2, (pPos.y + ePos.y) / 2 + 0.5, (pPos.z + ePos.z) / 2],
-            scale: 1.2,
-          },
-        ]);
       }
     }
     prevTapPressedRef.current = tapPressed;
@@ -806,13 +892,15 @@ function ArenaScene({
         }
 
         const enemyJumpPressed = enemyActions.jump;
-        if (
+        const enemyJumpAttempted =
           enemyJumpPressed &&
           !prevEnemyJumpPressedRef.current &&
           enemyJumpCooldownRef.current <= 0 &&
           canEnemyJump &&
-          !isEnemyExhausted
-        ) {
+          !isEnemyExhausted;
+        if (enemyJumpAttempted && eStaminaRef.current < jumpCost) {
+          showEnemySweat();
+        } else if (enemyJumpAttempted) {
           enemyJumpCooldownRef.current = 0.25;
           enemyJumpsRemainingRef.current -= 1;
           eStaminaRef.current = Math.max(0, eStaminaRef.current - jumpCost);
@@ -839,36 +927,40 @@ function ArenaScene({
           !isEnemyExhausted
         ) {
           if (isTouchingOpponent) {
-            let pushDirX = enemyMoveDir.x;
-            let pushDirZ = enemyMoveDir.z;
-            if (pushDirX === 0 && pushDirZ === 0) {
-              pushDirX = (pPos.x - ePos.x) / (enemyDist || 1);
-              pushDirZ = (pPos.z - ePos.z) / (enemyDist || 1);
-            }
+            if (eStaminaRef.current < sumoPushCost) {
+              showEnemySweat();
+            } else {
+              let pushDirX = enemyMoveDir.x;
+              let pushDirZ = enemyMoveDir.z;
+              if (pushDirX === 0 && pushDirZ === 0) {
+                pushDirX = (pPos.x - ePos.x) / (enemyDist || 1);
+                pushDirZ = (pPos.z - ePos.z) / (enemyDist || 1);
+              }
 
-            const staminaDiff = eStaminaRef.current - pStaminaRef.current;
-            eStaminaRef.current = Math.max(0, eStaminaRef.current - sumoPushCost);
-            if (eStaminaRef.current <= 0) {
-              eStaminaRef.current = 0;
-              enemyExhaustionTimerRef.current = exhaustionDuration;
-              setEnemyExhausted(true);
-            }
+              const staminaDiff = eStaminaRef.current - pStaminaRef.current;
+              eStaminaRef.current = Math.max(0, eStaminaRef.current - sumoPushCost);
+              if (eStaminaRef.current <= 0) {
+                eStaminaRef.current = 0;
+                enemyExhaustionTimerRef.current = exhaustionDuration;
+                setEnemyExhausted(true);
+              }
 
-            const pushImpulse = 16 + Math.max(0, staminaDiff / 100) * 10;
-            playerBounceTimerRef.current = 0.5;
-            setPlayerStunned(true);
-            playerBody.setLinvel(
-              {x: pushDirX * pushImpulse, y: 3.2, z: pushDirZ * pushImpulse},
-              true,
-            );
-            gameAudio.playGunshotBlast();
-            setHitSparks([
-              {
-                id: Date.now(),
-                pos: [(pPos.x + ePos.x) / 2, (pPos.y + ePos.y) / 2 + 0.5, (pPos.z + ePos.z) / 2],
-                scale: 1.2,
-              },
-            ]);
+              const pushImpulse = 16 + Math.max(0, staminaDiff / 100) * 10;
+              playerBounceTimerRef.current = 0.5;
+              setPlayerStunned(true);
+              playerBody.setLinvel(
+                {x: pushDirX * pushImpulse, y: 3.2, z: pushDirZ * pushImpulse},
+                true,
+              );
+              gameAudio.playGunshotBlast();
+              setHitSparks([
+                {
+                  id: Date.now(),
+                  pos: [(pPos.x + ePos.x) / 2, (pPos.y + ePos.y) / 2 + 0.5, (pPos.z + ePos.z) / 2],
+                  scale: 1.2,
+                },
+              ]);
+            }
           }
         }
         prevEnemyTapPressedRef.current = enemyPushPressed;
@@ -1073,14 +1165,6 @@ function ArenaScene({
       setEnemyStamina(Math.round(eStaminaRef.current));
     }
 
-    // Imperative mesh rotations
-    if (playerVisualRef.current) {
-      playerVisualRef.current.rotation.y = playerHeadingRef.current;
-    }
-    if (enemyVisualRef.current) {
-      enemyVisualRef.current.rotation.y = enemyHeadingRef.current;
-    }
-
     // Dynamic Camera tracking the midpoint of combat
     const midX = (pPos.x + ePos.x) * 0.35;
     const midZ = (pPos.z + ePos.z) * 0.35;
@@ -1112,36 +1196,35 @@ function ArenaScene({
         restitution={0.2}
         enabledRotations={[false, true, false]}
         name="player-sumo">
-        <group ref={playerVisualRef}>
-          <SumoCubeVisual
-            color="#0284c7"
-            beltColor="#eab308"
-            isPlayer={true}
-            isExhausted={playerExhausted}
-            isStunned={playerStunned}
-          />
-        </group>
+        <SumoCubeVisual
+          color="#0284c7"
+          beltColor="#eab308"
+          isPlayer={true}
+          isExhausted={playerExhausted}
+          isStunned={playerStunned}
+          isSweating={playerSweating}
+        />
       </RigidBody>
 
       {/* AI Enemy Sumo Cube */}
       <RigidBody
         ref={enemyBodyRef}
         position={[0, 1.5, -6]}
+        rotation={[0, Math.PI, 0]}
         colliders="cuboid"
         mass={2.0}
         friction={0.4}
         restitution={0.3}
         enabledRotations={[false, true, false]}
         name="enemy-sumo">
-        <group ref={enemyVisualRef}>
-          <SumoCubeVisual
-            color="#e11d48"
-            beltColor="#1e293b"
-            isPlayer={false}
-            isExhausted={enemyExhausted}
-            isStunned={enemyStunned}
-          />
-        </group>
+        <SumoCubeVisual
+          color="#e11d48"
+          beltColor="#1e293b"
+          isPlayer={false}
+          isExhausted={enemyExhausted}
+          isStunned={enemyStunned}
+          isSweating={enemySweating}
+        />
       </RigidBody>
     </group>
   );

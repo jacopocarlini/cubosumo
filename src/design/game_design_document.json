@@ -79,7 +79,7 @@
     },
     {
       "title": "Virtual Touch Controls Implementation",
-      "content": "Responsive virtual joystick / 4-way D-Pad on the bottom left and a large, stylized 'SPINTA / SHOVE' button on the bottom right. Wired with onPointerDown, onPointerUp, onPointerLeave, and onPointerCancel with touch-none to prevent browser scroll.",
+      "content": "Responsive virtual joystick / 4-way D-Pad on the bottom left and a large, stylized 'PUSH' button on the bottom right. Wired with onPointerDown, onPointerUp, onPointerLeave, and onPointerCancel with touch-none to prevent browser scroll.",
       "summary": "Dedicated mobile touch control overlay."
     }
   ]

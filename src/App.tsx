@@ -167,10 +167,10 @@ export default function App() {
               <div className="flex justify-between items-center text-[10px] md:text-xs font-bold text-sky-400">
                 <span className="flex items-center gap-1">
                   <Zap className="w-3 h-3 fill-sky-400" />
-                  GIOCATORE
+                  PLAYER
                 </span>
                 {playerExhausted ? (
-                  <span className="text-rose-400 font-extrabold animate-pulse text-[10px]">ESAUSTO (-80%)</span>
+                  <span className="text-rose-400 font-extrabold animate-pulse text-[10px]">EXHAUSTED (-80%)</span>
                 ) : (
                   <span className="font-mono text-slate-300">{playerStamina}%</span>
                 )}
@@ -197,10 +197,10 @@ export default function App() {
               <div className="flex justify-between items-center text-[10px] md:text-xs font-bold text-rose-400">
                 <span className="flex items-center gap-1">
                   <Zap className="w-3 h-3 fill-rose-400" />
-                  AVVERSARIO
+                  OPPONENT
                 </span>
                 {enemyExhausted ? (
-                  <span className="text-rose-400 font-extrabold animate-pulse text-[10px]">ESAUSTO (-80%)</span>
+                  <span className="text-rose-400 font-extrabold animate-pulse text-[10px]">EXHAUSTED (-80%)</span>
                 ) : (
                   <span className="font-mono text-slate-300">{enemyStamina}%</span>
                 )}
@@ -266,17 +266,17 @@ export default function App() {
             <div className="bg-slate-900/85 border border-slate-700/80 px-4 py-2 rounded-full text-xs font-semibold text-slate-300 backdrop-blur shadow-xl flex items-center gap-3">
               {isLocalMultiplayer ? (
                 <>
-                  <span><strong className="text-amber-400">P1 WASD</strong> · <strong className="text-sky-400">C</strong> salta · <strong className="text-rose-400">V</strong> spinta</span>
+                  <span><strong className="text-amber-400">P1 WASD</strong> · <strong className="text-sky-400">C</strong> jump · <strong className="text-rose-400">V</strong> push</span>
                   <span className="text-slate-600">|</span>
-                  <span><strong className="text-amber-400">P2 Frecce</strong> · <strong className="text-sky-400">,</strong> salta · <strong className="text-rose-400">.</strong> spinta</span>
+                  <span><strong className="text-amber-400">P2 Arrows</strong> · <strong className="text-sky-400">,</strong> jump · <strong className="text-rose-400">.</strong> push</span>
                 </>
               ) : (
                 <>
-                  <span><strong className="text-amber-400">WASD / Frecce</strong> : Muovi</span>
+                  <span><strong className="text-amber-400">WASD / Arrows</strong> : Move</span>
                   <span className="text-slate-600">|</span>
-                  <span><strong className="text-sky-400">SPAZIO</strong> : Salta</span>
+                  <span><strong className="text-sky-400">SPACE</strong> : Jump</span>
                   <span className="text-slate-600">|</span>
-                  <span><strong className="text-rose-400">CLICK</strong> : Spinta Sumo</span>
+                  <span><strong className="text-rose-400">CLICK</strong> : Sumo Push</span>
                 </>
               )}
             </div>
@@ -340,7 +340,7 @@ export default function App() {
                   handleMobileSumoPush();
                 }}
                 className="w-16 h-16 bg-gradient-to-br from-rose-500 to-amber-600 active:from-rose-400 active:to-amber-500 border-2 border-rose-300 rounded-2xl text-white font-black flex flex-col items-center justify-center shadow-xl active:scale-90 transition-transform">
-                <span className="text-xs font-black tracking-wider">SPINTA</span>
+                <span className="text-xs font-black tracking-wider">PUSH</span>
                 <span className="text-[9px] text-rose-200">SUMO</span>
               </button>
 
@@ -352,7 +352,7 @@ export default function App() {
                 onPointerUp={() => handleMobileJump(false)}
                 onPointerCancel={() => handleMobileJump(false)}
                 className="w-16 h-16 bg-gradient-to-br from-sky-500 to-blue-600 active:from-sky-400 active:to-blue-500 border-2 border-sky-300 rounded-2xl text-white font-black flex flex-col items-center justify-center shadow-xl active:scale-90 transition-transform">
-                <span className="text-xs font-black tracking-wide">SALTA</span>
+                <span className="text-xs font-black tracking-wide">JUMP</span>
                 <span className="text-[9px] text-sky-200">SPACE</span>
               </button>
             </div>
@@ -371,7 +371,7 @@ export default function App() {
               {getConfig('title')}
             </h1>
             <p className="text-slate-300 text-xs md:text-sm mb-6 leading-relaxed">
-              Spingi l&apos;avversario fuori dal ring! Usa il <strong>Click</strong> a contatto per la <strong>Spinta Sumo</strong> che lo fa rimbalzare bloccandolo nell&apos;animazione. Fai attenzione alla stamina: a zero perdi l&apos;80% di velocità e il salto per 2 secondi!
+              Push your opponent out of the ring! Click while in contact to unleash a <strong>Sumo Push</strong> that sends them flying. Watch your stamina: when it runs out, your speed drops to <strong>20%</strong> and you can&apos;t jump or push for 2 seconds!
             </p>
 
             <div className="w-full flex flex-col gap-3">
@@ -380,7 +380,7 @@ export default function App() {
                 autoFocus
                 className="w-full py-3.5 px-6 rounded-xl font-black text-base md:text-lg bg-amber-400 hover:bg-amber-300 text-slate-950 flex items-center justify-center gap-2 shadow-lg shadow-amber-500/20 cursor-pointer transition transform active:scale-95">
                 <Play className="w-5 h-5 fill-slate-950" />
-                INIZIA PARTITA
+                START GAME
               </button>
               <button
                 onClick={() => {
@@ -389,7 +389,7 @@ export default function App() {
                 }}
                 className="w-full py-2.5 px-6 rounded-xl font-bold text-xs md:text-sm bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 flex items-center justify-center gap-2 cursor-pointer transition">
                 <HelpCircle className="w-4 h-4" />
-                COME GIOCARE
+                HOW TO PLAY
               </button>
             </div>
           </div>
@@ -401,7 +401,7 @@ export default function App() {
         <MenuOverlay tone="neutral" zIndex={60}>
           <div className="w-full max-w-md bg-slate-900 border-2 border-slate-700 rounded-3xl p-6 md:p-8 shadow-2xl flex flex-col items-center text-center">
             <h2 className="text-2xl md:text-4xl font-black text-amber-400 mb-6 uppercase tracking-wider">
-              MENU DI GIOCO
+              GAME MENU
             </h2>
 
             <div className="w-full flex flex-col gap-3 mb-6">
@@ -413,7 +413,7 @@ export default function App() {
                 autoFocus
                 className="w-full py-3 rounded-xl font-black text-base bg-amber-400 hover:bg-amber-300 text-slate-950 flex items-center justify-center gap-2 cursor-pointer transition">
                 <Play className="w-4 h-4 fill-slate-950" />
-                RIPRENDI
+                RESUME
               </button>
 
               <button
@@ -423,7 +423,7 @@ export default function App() {
                 }}
                 className="w-full py-2.5 rounded-xl font-bold text-sm bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 flex items-center justify-center gap-2 cursor-pointer transition">
                 <RotateCw className="w-4 h-4" />
-                RICOMINCIA ROUND
+                RESTART ROUND
               </button>
 
               <button
@@ -433,7 +433,7 @@ export default function App() {
                 }}
                 className="w-full py-2.5 rounded-xl font-bold text-sm bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 flex items-center justify-center gap-2 cursor-pointer transition">
                 <HelpCircle className="w-4 h-4" />
-                COME GIOCARE
+                HOW TO PLAY
               </button>
 
               {/* Audio Controls */}
@@ -445,13 +445,13 @@ export default function App() {
                   }}
                   className="py-2.5 px-3 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 flex items-center justify-center gap-1.5 cursor-pointer">
                   {sfxMuted ? <VolumeX className="w-4 h-4 text-rose-400" /> : <Volume2 className="w-4 h-4 text-emerald-400" />}
-                  SFX: {sfxMuted ? 'MUTO' : 'ATTIVO'}
+                  SFX: {sfxMuted ? 'MUTED' : 'ON'}
                 </button>
                 <button
                   onClick={() => setMusicMuted((prev) => !prev)}
                   className="py-2.5 px-3 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 flex items-center justify-center gap-1.5 cursor-pointer">
                   {musicMuted ? <VolumeX className="w-4 h-4 text-rose-400" /> : <Volume2 className="w-4 h-4 text-emerald-400" />}
-                  MUSICA: {musicMuted ? 'MUTA' : 'ATTIVA'}
+                  MUSIC: {musicMuted ? 'MUTED' : 'ON'}
                 </button>
               </div>
             </div>
@@ -463,7 +463,7 @@ export default function App() {
                 setGameState((prev) => ({...prev, status: 'START'}));
               }}
               className="text-xs text-rose-400 hover:text-rose-300 font-semibold cursor-pointer">
-              ESCI AL MENU PRINCIPALE
+              EXIT TO MAIN MENU
             </button>
           </div>
         </MenuOverlay>
@@ -474,45 +474,45 @@ export default function App() {
         <MenuOverlay tone="neutral" zIndex={70}>
           <div className="w-full max-w-md bg-slate-900 border-2 border-amber-500/50 rounded-3xl p-6 md:p-8 shadow-2xl flex flex-col items-center text-center">
             <h2 className="text-2xl md:text-3xl font-black text-amber-400 mb-4 uppercase">
-              COME GIOCARE
+              HOW TO PLAY
             </h2>
             <div className="text-left text-xs md:text-sm text-slate-300 space-y-3 mb-6">
               <div className="bg-slate-800/80 p-3 rounded-xl border border-slate-700">
-                <span className="font-bold text-amber-300">🎮 Movimento:</span>
+                <span className="font-bold text-amber-300">🎮 Movement:</span>
                 <p className="mt-0.5 text-slate-300">
                   {isLocalMultiplayer ? (
-                    <>Giocatore 1: <kbd className="bg-slate-700 px-1.5 py-0.5 rounded text-white font-mono">WASD</kbd>. Giocatore 2: <kbd className="bg-slate-700 px-1.5 py-0.5 rounded text-white font-mono">Frecce</kbd>.</>
+                    <>Player 1: <kbd className="bg-slate-700 px-1.5 py-0.5 rounded text-white font-mono">WASD</kbd>. Player 2: <kbd className="bg-slate-700 px-1.5 py-0.5 rounded text-white font-mono">Arrow keys</kbd>.</>
                   ) : (
-                    <>Usa <kbd className="bg-slate-700 px-1.5 py-0.5 rounded text-white font-mono">WASD</kbd> o <kbd className="bg-slate-700 px-1.5 py-0.5 rounded text-white font-mono">Frecce</kbd> per muoverti.</>
+                    <>Use <kbd className="bg-slate-700 px-1.5 py-0.5 rounded text-white font-mono">WASD</kbd> or the <kbd className="bg-slate-700 px-1.5 py-0.5 rounded text-white font-mono">arrow keys</kbd> to move.</>
                   )}
                 </p>
               </div>
 
               <div className="bg-slate-800/80 p-3 rounded-xl border border-slate-700">
-                <span className="font-bold text-rose-400">💥 Spinta Sumo:</span>
+                <span className="font-bold text-rose-400">💥 Sumo Push:</span>
                 <p className="mt-0.5 text-slate-300">
                   {isLocalMultiplayer ? (
-                    <>A contatto, il giocatore 1 preme <kbd className="bg-slate-700 px-1.5 py-0.5 rounded text-white font-mono">V</kbd> e il giocatore 2 preme <kbd className="bg-slate-700 px-1.5 py-0.5 rounded text-white font-mono">.</kbd>. Consuma stamina e fa rimbalzare l&apos;avversario.</>
+                    <>When in contact, Player 1 presses <kbd className="bg-slate-700 px-1.5 py-0.5 rounded text-white font-mono">V</kbd> and Player 2 presses <kbd className="bg-slate-700 px-1.5 py-0.5 rounded text-white font-mono">.</kbd>. It uses stamina and sends the opponent flying.</>
                   ) : (
-                    <>Fai click quando tocchi l&apos;avversario nella direzione del movimento. Consuma stamina e lo fa rimbalzare.</>
+                    <>Click while touching your opponent to push them in your current movement direction. It uses stamina and sends them flying.</>
                   )}
                 </p>
               </div>
 
               <div className="bg-slate-800/80 p-3 rounded-xl border border-slate-700">
-                <span className="font-bold text-sky-300">🦘 Salto:</span>
+                <span className="font-bold text-sky-300">🦘 Jump:</span>
                 <p className="mt-0.5 text-slate-300">
                   {isLocalMultiplayer ? (
-                    <>Il giocatore 1 salta con <kbd className="bg-slate-700 px-1.5 py-0.5 rounded text-white font-mono">C</kbd>, il giocatore 2 con <kbd className="bg-slate-700 px-1.5 py-0.5 rounded text-white font-mono">,</kbd>. Premi di nuovo in aria per fare un doppio salto; ogni salto consuma stamina.</>
+                    <>Player 1 jumps with <kbd className="bg-slate-700 px-1.5 py-0.5 rounded text-white font-mono">C</kbd>, and Player 2 with <kbd className="bg-slate-700 px-1.5 py-0.5 rounded text-white font-mono">,</kbd>. Press again in midair to double jump. Each jump uses stamina.</>
                   ) : (
-                    <>Premi <kbd className="bg-slate-700 px-1.5 py-0.5 rounded text-white font-mono">SPAZIO</kbd> a terra o sopra l&apos;avversario, poi premilo di nuovo in aria per fare un doppio salto. Ogni salto consuma stamina.</>
+                    <>Press <kbd className="bg-slate-700 px-1.5 py-0.5 rounded text-white font-mono">SPACE</kbd> on the ground or on top of your opponent, then press again in midair to double jump. Each jump uses stamina.</>
                   )}
                 </p>
               </div>
 
               <div className="bg-slate-800/80 p-3 rounded-xl border border-slate-700">
-                <span className="font-bold text-rose-300">⚠️ Penalità Stamina Esaurita:</span>
-                <p className="mt-0.5 text-slate-300">Se finisci la stamina (0%), dura <strong>2 secondi</strong>: velocità ridotta al <strong>20%</strong> e <strong>impossibilità di saltare</strong> (vale per entrambi i cubi!).</p>
+                <span className="font-bold text-rose-300">⚠️ Exhaustion:</span>
+                <p className="mt-0.5 text-slate-300">When your stamina reaches 0%, exhaustion lasts <strong>2 seconds</strong>: your speed drops to <strong>20%</strong> and you <strong>can&apos;t jump or push</strong> (this applies to both cubes!). Cubes also sweat when they don&apos;t have enough stamina for an action.</p>
               </div>
             </div>
 
@@ -524,7 +524,7 @@ export default function App() {
               autoFocus
               className="w-full py-3 rounded-xl font-black text-base bg-amber-400 hover:bg-amber-300 text-slate-950 flex items-center justify-center gap-2 cursor-pointer transition">
               <X className="w-5 h-5" />
-              CHIUDI
+              CLOSE
             </button>
           </div>
         </MenuOverlay>
@@ -533,9 +533,9 @@ export default function App() {
       {/* GAME OVER SCREEN */}
       {gameState.status === 'GAME_OVER' && (
         <Overlay
-          title="SCONFITTA"
-          description={`Sei caduto dal ring 3 volte! Punteggio finale: ${gameState.score}`}
-          actionLabel="RIGIOCA"
+          title="DEFEAT"
+          description={`You fell out of the ring 3 times! Final score: ${gameState.score}`}
+          actionLabel="PLAY AGAIN"
           onAction={initGame}
           icon={<RotateCw size={20} />}
           tone="danger"
@@ -545,9 +545,9 @@ export default function App() {
       {/* VICTORY SCREEN */}
       {gameState.status === 'VICTORY' && (
         <Overlay
-          title="CAMPIONE DI SUMO!"
-          description={`Hai trionfato nel torneo! Punteggio Finale: ${gameState.score}`}
-          actionLabel="NUOVA SFIDA"
+          title="SUMO CHAMPION!"
+          description={`You won the tournament! Final score: ${gameState.score}`}
+          actionLabel="NEW CHALLENGE"
           onAction={initGame}
           icon={<RotateCw size={20} />}
           tone="victory"
