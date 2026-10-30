@@ -43,7 +43,7 @@ interface SumoCubeMeshProps {
   isPlayer?: boolean;
   isExhausted?: boolean;
   isStunned?: boolean;
-  isSweating?: boolean;
+  rejectedActionId?: number;
 }
 
 function SumoCubeVisual({
@@ -52,10 +52,29 @@ function SumoCubeVisual({
   isPlayer = false,
   isExhausted = false,
   isStunned = false,
-  isSweating = false,
+  rejectedActionId = 0,
 }: SumoCubeMeshProps) {
+  const visualRef = useRef<THREE.Group>(null);
+  const shakeRef = useRef({signal: rejectedActionId, elapsed: 0.3});
+
+  useFrame((_, delta) => {
+    const shake = shakeRef.current;
+    if (shake.signal !== rejectedActionId) {
+      if (rejectedActionId > shake.signal) shake.elapsed = 0;
+      shake.signal = rejectedActionId;
+    }
+    if (!visualRef.current) return;
+    if (shake.elapsed < 0.3) {
+      shake.elapsed = Math.min(0.3, shake.elapsed + delta);
+      const progress = shake.elapsed / 0.3;
+      visualRef.current.rotation.y = Math.sin(progress * Math.PI * 10) * 0.2 * (1 - progress);
+    } else {
+      visualRef.current.rotation.y = 0;
+    }
+  });
+
   return (
-    <group>
+    <group ref={visualRef}>
       {/* Main Cube Body */}
       <mesh position={[0, 0.75, 0]} castShadow receiveShadow>
         <boxGeometry args={[1.5, 1.5, 1.5]} />
@@ -90,7 +109,7 @@ function SumoCubeVisual({
         </mesh>
       </group>
 
-      <SweatDrops visible={isExhausted || isSweating} />
+      <SweatDrops visible={isExhausted} />
 
       {/* Expressive Sumo Eyes on Front (-Z Face) */}
       <group position={[0, 0.95, -0.76]}>
@@ -389,8 +408,8 @@ function ArenaScene({
   // States
   const [playerStunned, setPlayerStunned] = useState(false);
   const [enemyStunned, setEnemyStunned] = useState(false);
-  const [playerSweating, setPlayerSweating] = useState(false);
-  const [enemySweating, setEnemySweating] = useState(false);
+  const [playerRejectedActionId, setPlayerRejectedActionId] = useState(0);
+  const [enemyRejectedActionId, setEnemyRejectedActionId] = useState(0);
   const [hitSparks, setHitSparks] = useState<HitSpark[]>([]);
 
   // AI Tactical State Ref ('ATTACK' or 'REST')
@@ -415,8 +434,6 @@ function ArenaScene({
   // Bounce animation / stun states (during bounce, opponent is locked in animation)
   const enemyBounceTimerRef = useRef(0);
   const playerBounceTimerRef = useRef(0);
-  const playerSweatTimerRef = useRef(0);
-  const enemySweatTimerRef = useRef(0);
 
   const playerHeadingRef = useRef(0);
   const enemyHeadingRef = useRef(0);
@@ -458,8 +475,6 @@ function ArenaScene({
     enemyBounceTimerRef.current = 0;
     playerBounceTimerRef.current = 0;
     enemySumoPushCooldownRef.current = 0;
-    playerSweatTimerRef.current = 0;
-    enemySweatTimerRef.current = 0;
     playerHeadingRef.current = 0;
     enemyHeadingRef.current = Math.PI;
 
@@ -469,8 +484,8 @@ function ArenaScene({
     setEnemyExhausted(false);
     setPlayerStunned(false);
     setEnemyStunned(false);
-    setPlayerSweating(false);
-    setEnemySweating(false);
+    setPlayerRejectedActionId(0);
+    setEnemyRejectedActionId(0);
 
     if (playerBodyRef.current) {
       playerBodyRef.current.setTranslation({x: 0, y: 1.5, z: 6}, true);
@@ -500,15 +515,6 @@ function ArenaScene({
     const enemyActions = inputRef.current.player2Actions;
     const pointer = inputRef.current.pointer;
     const localMultiplayer = gameMode === 'local-multiplayer';
-
-    const showPlayerSweat = () => {
-      playerSweatTimerRef.current = 0.8;
-      setPlayerSweating(true);
-    };
-    const showEnemySweat = () => {
-      enemySweatTimerRef.current = 0.8;
-      setEnemySweating(true);
-    };
 
     // 1. Gradually shrink the rectangular Dohyo ring over time until it completely disappears
     if (ringDimRef.current.width > 0 || ringDimRef.current.length > 0) {
@@ -801,12 +807,11 @@ function ArenaScene({
       jumpPressed &&
       !prevJumpPressedRef.current &&
       playerJumpCooldownRef.current <= 0 &&
-      canPlayerJump &&
-      !isPlayerExhausted;
+      canPlayerJump;
     const jumpVelocity = getConfig('jumpVelocity');
 
-    if (jumpAttempted && pStaminaRef.current < jumpCost) {
-      showPlayerSweat();
+    if (jumpAttempted && (isPlayerExhausted || pStaminaRef.current < jumpCost)) {
+      setPlayerRejectedActionId((id) => id + 1);
     } else if (jumpAttempted) {
       playerJumpCooldownRef.current = 0.25;
       playerJumpsRemainingRef.current -= 1;
@@ -838,13 +843,12 @@ function ArenaScene({
     const tapPressed = pointer.down || actions.confirm;
     if (
       tapPressed &&
-      !prevTapPressedRef.current &&
-      !isPlayerExhausted
+      !prevTapPressedRef.current
     ) {
       // Only takes effect if touching the opponent
       if (isTouchingOpponent) {
-        if (pStaminaRef.current < sumoPushCost) {
-          showPlayerSweat();
+        if (isPlayerExhausted || pStaminaRef.current < sumoPushCost) {
+          setPlayerRejectedActionId((id) => id + 1);
         } else {
           // Push in the movement direction, or toward the enemy if stationary.
           let pushDirX = playerMoveDir.x;
@@ -938,10 +942,9 @@ function ArenaScene({
           enemyJumpPressed &&
           !prevEnemyJumpPressedRef.current &&
           enemyJumpCooldownRef.current <= 0 &&
-          canEnemyJump &&
-          !isEnemyExhausted;
-        if (enemyJumpAttempted && eStaminaRef.current < jumpCost) {
-          showEnemySweat();
+          canEnemyJump;
+        if (enemyJumpAttempted && (isEnemyExhausted || eStaminaRef.current < jumpCost)) {
+          setEnemyRejectedActionId((id) => id + 1);
         } else if (enemyJumpAttempted) {
           enemyJumpCooldownRef.current = 0.25;
           enemyJumpsRemainingRef.current -= 1;
@@ -965,12 +968,11 @@ function ArenaScene({
         const enemyPushPressed = enemyActions.confirm;
         if (
           enemyPushPressed &&
-          !prevEnemyTapPressedRef.current &&
-          !isEnemyExhausted
+          !prevEnemyTapPressedRef.current
         ) {
           if (isTouchingOpponent) {
-            if (eStaminaRef.current < sumoPushCost) {
-              showEnemySweat();
+            if (isEnemyExhausted || eStaminaRef.current < sumoPushCost) {
+              setEnemyRejectedActionId((id) => id + 1);
             } else {
               let pushDirX = enemyMoveDir.x;
               let pushDirZ = enemyMoveDir.z;
@@ -1244,7 +1246,7 @@ function ArenaScene({
           isPlayer={true}
           isExhausted={playerExhausted}
           isStunned={playerStunned}
-          isSweating={playerSweating}
+          rejectedActionId={playerRejectedActionId}
         />
       </RigidBody>
 
@@ -1265,7 +1267,7 @@ function ArenaScene({
           isPlayer={false}
           isExhausted={enemyExhausted}
           isStunned={enemyStunned}
-          isSweating={enemySweating}
+          rejectedActionId={enemyRejectedActionId}
         />
       </RigidBody>
     </group>
@@ -1316,7 +1318,7 @@ function OnlineArenaScene({snapshot, seat}: {snapshot: MatchSnapshot | null; sea
             isPlayer={index === 0}
             isExhausted={fighters?.[index].exhausted}
             isStunned={fighters?.[index].stunned}
-            isSweating={fighters?.[index].sweating}
+            rejectedActionId={fighters?.[index].rejectedActions}
           />
         </group>
       ))}
@@ -1376,13 +1378,13 @@ export function Game({
             intensity={getConfig('ambientIntensity')}
           />
           <directionalLight
-            position={[12, 22, 14]}
+            position={[0, 30, 0]}
             intensity={getConfig('sunIntensity')}
             color={getConfig('sunColor')}
             castShadow
             shadow-mapSize={[2048, 2048]}
-            shadow-camera-near={0.5}
-            shadow-camera-far={60}
+            shadow-camera-near={0.1}
+            shadow-camera-far={50}
             shadow-camera-left={-22}
             shadow-camera-right={22}
             shadow-camera-top={22}

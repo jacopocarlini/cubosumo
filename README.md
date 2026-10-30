@@ -49,6 +49,22 @@ the same address, by default `http://localhost:3001`. `npm run preview` previews
 the frontend only; it does not replace the multiplayer backend. Keep runtime
 dependencies installed: the backend uses `tsx` to execute its TypeScript.
 
+## Docker deployment
+
+Build and start the game and multiplayer server together:
+
+```sh
+docker compose up -d --build
+```
+
+The service listens on port **3001** by default. Set `PUBLISH_PORT` in the
+environment or in a `.env` file to change the NAS host port. To make the game
+public, configure the NAS reverse proxy to forward your domain to port 3001,
+enable HTTPS, and allow WebSocket upgrades for `/ws`. Forward public web traffic
+to the reverse proxy rather than exposing port 3001 directly. The game uses the
+same host for its WebSocket connection, so no separate multiplayer URL is
+needed.
+
 Environment variables:
 
 | Variable | Default | Purpose |
@@ -83,6 +99,55 @@ Rooms and queues live in memory on one server process and do not survive
 restarts. Deploy one instance, or add sticky routing and an external room/match
 directory before scaling across instances. Codes are shareable room identifiers,
 not authentication or access-control credentials.
+
+## Stack NAS Ugreen
+
+I servizi NAS sono separati in tre progetti Compose, indipendenti dal gioco
+(`compose.yaml`):
+
+| File | Servizi |
+| --- | --- |
+| `compose.arr.yaml` | Sonarr, Radarr, Seerr, Tdarr, Prowlarr, Jackett, FlareSolverr e Jellyfin |
+| `compose.vpn.yaml` | Gluetun e qBittorrent, che usa esclusivamente la rete di Gluetun |
+| `compose.proxy.yaml` | Caddy e DuckDNS |
+
+Sono mantenuti i nomi dei container, le porte, i percorsi su `/volume1` e le
+impostazioni originali. Prima della migrazione fai un backup delle configurazioni
+e arresta/rimuovi i vecchi container tramite i rispettivi progetti NAS, senza
+eliminare i dati su disco. I nuovi progetti riutilizzano gli stessi nomi dei
+container: non possono essere avviati insieme ai vecchi. Non usare `down -v` e
+non eliminare le cartelle montate.
+
+Tutti i servizi che devono comunicare tra progetti usano la rete esterna
+`marvel_net`. Se non esiste, creala una sola volta:
+
+```sh
+docker network create marvel_net
+```
+
+Copia `.env.example` in `.env` accanto ai file Compose e compila
+`WIREGUARD_PRIVATE_KEY` e `DUCKDNS_TOKEN`. Non inserire credenziali nei file YAML
+o nel repository. Rigenera la chiave WireGuard e il token DuckDNS precedentemente
+presenti in chiaro. Se importi i file come progetti separati nell'interfaccia
+Ugreen, configura la variabile corrispondente nel progetto VPN e nel progetto
+proxy, tramite il relativo `.env` o le impostazioni del progetto.
+
+Da terminale, nella cartella contenente i file, usa nomi progetto distinti:
+
+```sh
+docker compose -p nas-vpn -f compose.vpn.yaml up -d
+docker compose -p nas-arr -f compose.arr.yaml up -d
+docker compose -p nas-proxy -f compose.proxy.yaml up -d
+```
+
+Usa gli stessi `-p` e `-f` anche per aggiornamenti, log e arresto dei singoli
+stack. Non unire i tre file con piu opzioni `-f` nello stesso comando.
+Sonarr/Radarr devono raggiungere qBittorrent tramite `gluetun:8887`, non tramite
+`localhost` o `qbittorrent_vpn`, che non ha una rete propria. Il Caddyfile
+esistente puo continuare a usare i nomi dei servizi e le porte interne
+(ad esempio `sonarr:8989`, `jellyfin_custom:8096` e `gluetun:8887`).
+Le porte Caddy sul NAS restano `7777` per HTTP e `7776` per HTTPS: mantieni
+gli inoltri router esistenti dalle porte pubbliche 80/443.
 
 ## Checks
 

@@ -1,0 +1,22 @@
+services:
+  cubosumo:
+    build:
+      context: .
+    image: cubosumo:latest
+    container_name: cubosumo
+    restart: unless-stopped
+    environment:
+      HOST: 0.0.0.0
+      PORT: 3001
+    ports:
+      - "${PUBLISH_PORT:-3001}:3001"
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3001/health').then(r => { if (!r.ok) process.exit(1) }).catch(() => process.exit(1))"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s

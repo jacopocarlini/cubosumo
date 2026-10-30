@@ -62,7 +62,7 @@ export const CONFIG = {
 
   // --- Player & Movement ---
   playerSpeed: {
-    value: 9.5,
+    value: 13,
     type: 'number',
     label: 'Player Speed',
     group: 'Physics',
@@ -71,7 +71,7 @@ export const CONFIG = {
     step: 0.5,
   },
   jumpVelocity: {
-    value: 18.5,
+    value: 20,
     type: 'number',
     label: 'Jump Velocity',
     group: 'Physics',

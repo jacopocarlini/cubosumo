@@ -491,7 +491,7 @@ export default function App() {
               {getConfig('title')}
             </h1>
             <p className="text-slate-300 text-xs md:text-sm mb-6 leading-relaxed">
-              Push your opponent out of the ring! Click while in contact to unleash a <strong>Sumo Push</strong> that sends them flying. Watch your stamina: when it runs out, your speed drops to <strong>20%</strong> and you can&apos;t jump or push for 2 seconds!
+              Push your opponent out of the ring! Click while in contact to unleash a <strong>Sumo Push</strong> that sends them flying. Watch your stamina: when it runs out, your speed drops to <strong>20%</strong> and you can&apos;t jump or push for 2 seconds. An exhausted cube sweats; a brief shake means an action needs more stamina.
             </p>
 
             <div className="w-full flex flex-col gap-3">
@@ -684,7 +684,7 @@ export default function App() {
 
               <div className="bg-slate-800/80 p-3 rounded-xl border border-slate-700">
                 <span className="font-bold text-rose-300">⚠️ Exhaustion:</span>
-                <p className="mt-0.5 text-slate-300">When your stamina reaches 0%, exhaustion lasts <strong>2 seconds</strong>: your speed drops to <strong>20%</strong> and you <strong>can&apos;t jump or push</strong> (this applies to both cubes!). Cubes also sweat when they don&apos;t have enough stamina for an action.</p>
+                <p className="mt-0.5 text-slate-300">When your stamina reaches 0%, exhaustion lasts <strong>2 seconds</strong>: your speed drops to <strong>20%</strong> and you <strong>can&apos;t jump or push</strong> (this applies to both cubes!). Exhausted cubes sweat for those 2 seconds; a brief shake means an action needs more stamina.</p>
               </div>
             </div>
 

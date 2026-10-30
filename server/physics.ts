@@ -14,7 +14,7 @@ interface Fighter {
   stamina: number;
   exhaustion: number;
   stun: number;
-  sweat: number;
+  rejectedActions: number;
   jumps: number;
   jumpCooldown: number;
   input: OnlineInput;
@@ -69,7 +69,7 @@ export class Match {
     body.setRotation({x: 0, y: seat === 0 ? 0 : 1, z: 0, w: seat === 0 ? 1 : 0}, true);
     return {
       body, collider, stamina: getConfig('maxStamina'), exhaustion: 0,
-      stun: 0, sweat: 0, jumps: 2, jumpCooldown: 0, input: neutralInput(),
+      stun: 0, rejectedActions: 0, jumps: 2, jumpCooldown: 0, input: neutralInput(),
       inputAge: Infinity, jumpQueued: false, pushQueued: false, lives: 3,
     };
   }
@@ -115,7 +115,8 @@ export class Match {
       f.body.setAngvel({x: 0, y: 0, z: 0}, true);
       f.body.setRotation({x: 0, y: seat === 0 ? 0 : 1, z: 0, w: seat === 0 ? 1 : 0}, true);
       f.stamina = getConfig('maxStamina');
-      f.exhaustion = f.stun = f.sweat = f.jumpCooldown = 0;
+      f.exhaustion = f.stun = f.jumpCooldown = 0;
+      f.rejectedActions = 0;
       f.jumps = 2;
       f.input = neutralInput();
       f.inputAge = Infinity;
@@ -124,10 +125,7 @@ export class Match {
   }
 
   private spend(f: Fighter, cost: number) {
-    if (f.exhaustion > 0 || f.stamina < cost) {
-      f.sweat = 0.7;
-      return false;
-    }
+    if (f.exhaustion > 0 || f.stamina < cost) return false;
     f.stamina = Math.max(0, f.stamina - cost);
     if (f.stamina <= 0) f.exhaustion = getConfig('exhaustionDuration');
     return true;
@@ -168,7 +166,6 @@ export class Match {
       f.inputAge += STEP;
       if (f.inputAge > INPUT_TIMEOUT) f.input = neutralInput();
       f.stun = Math.max(0, f.stun - STEP);
-      f.sweat = Math.max(0, f.sweat - STEP);
       f.jumpCooldown = Math.max(0, f.jumpCooldown - STEP);
       if (f.exhaustion > 0) {
         f.exhaustion = Math.max(0, f.exhaustion - STEP);
@@ -208,11 +205,14 @@ export class Match {
           f.body.setRotation({x: 0, y: Math.sin(angle / 2), z: 0, w: Math.cos(angle / 2)}, true);
         }
       }
-      if (f.jumpQueued && f.jumps > 0 &&
-          f.jumpCooldown <= 0 && f.stun <= 0 && this.spend(f, getConfig('staminaJumpCost'))) {
-        f.jumps--;
-        f.jumpCooldown = 0.25;
-        f.body.setLinvel({...f.body.linvel(), y: getConfig('jumpVelocity')}, true);
+      if (f.jumpQueued && f.jumps > 0 && f.jumpCooldown <= 0 && f.stun <= 0) {
+        if (this.spend(f, getConfig('staminaJumpCost'))) {
+          f.jumps--;
+          f.jumpCooldown = 0.25;
+          f.body.setLinvel({...f.body.linvel(), y: getConfig('jumpVelocity')}, true);
+        } else {
+          f.rejectedActions++;
+        }
       }
       return dir;
     });
@@ -227,7 +227,7 @@ export class Match {
     attacks.forEach((attack, seat) => {
       if (!attack) return;
       const f = this.fighters[seat];
-      if (!attack.eligible) { f.sweat = 0.7; return; }
+      if (!attack.eligible) { f.rejectedActions++; return; }
       this.spend(f, getConfig('staminaSumoPushCost'));
     });
     attacks.forEach((attack, seat) => {
@@ -299,7 +299,7 @@ export class Match {
     const players = this.fighters.map((f): FighterSnapshot => ({
       position: {...f.body.translation()}, rotation: {...f.body.rotation()},
       stamina: f.stamina, exhausted: f.exhaustion > 0, stunned: f.stun > 0,
-      sweating: f.sweat > 0, lives: f.lives,
+      rejectedActions: f.rejectedActions, lives: f.lives,
     })) as [FighterSnapshot, FighterSnapshot];
     return {
       type: 'snapshot', roomCode: this.code, phase: this.phase, players,

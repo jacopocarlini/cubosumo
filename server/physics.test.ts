@@ -130,7 +130,7 @@ test('push requires contact and sufficient stamina, stuns opponent and costs sta
     insufficient.fighters[0].stamina = 10;
     insufficient.setInput(0, {...neutralInput(), push: true});
     insufficient.step();
-    assert.ok(insufficient.snapshot().players[0].sweating);
+    assert.equal(insufficient.snapshot().players[0].rejectedActions, 1);
     assert.equal(insufficient.fighters[1].stun, 0);
   } finally { insufficient.dispose(); }
 });
@@ -186,6 +186,7 @@ test('stamina locks at zero during exhaustion, reduces speed and recovers after 
     m.setInput(0, {...neutralInput(), jump: true});
     m.step();
     assert.equal(f.jumps, 2);
+    assert.equal(m.snapshot().players[0].rejectedActions, 1);
     ticks(m, 90);
     assert.equal(f.stamina, 0);
     ticks(m, 32);

@@ -13,7 +13,7 @@ export interface FighterSnapshot {
   stamina: number;
   exhausted: boolean;
   stunned: boolean;
-  sweating: boolean;
+  rejectedActions: number;
   lives: number;
 }
 

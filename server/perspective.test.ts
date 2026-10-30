@@ -33,14 +33,14 @@ test('local HUD and visual states follow the correct fighter without changing re
     raw.players[0].lives = 1;
     raw.players[1].stamina = 62;
     raw.players[1].stunned = true;
-    raw.players[1].sweating = true;
+    raw.players[1].rejectedActions = 2;
     raw.players[1].lives = 2;
     raw.winner = 1;
     raw.rematch = [false, true];
     const original = structuredClone(raw);
     for (const seat of [0, 1] as const) {
       const [local, opponent] = getViewFighters(raw, seat);
-      for (const key of ['stamina', 'exhausted', 'stunned', 'sweating', 'lives'] as const) {
+      for (const key of ['stamina', 'exhausted', 'stunned', 'rejectedActions', 'lives'] as const) {
         assert.equal(local[key], raw.players[seat][key]);
         assert.equal(opponent[key], raw.players[seat === 0 ? 1 : 0][key]);
       }
